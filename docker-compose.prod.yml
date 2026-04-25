@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL Database ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-coldaf_db}
+      POSTGRES_USER: ${DB_USER:-coldaf}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-coldaf} -d ${DB_NAME:-coldaf_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Redis (for Bull queue) ────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Backend API Server ────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-coldaf}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-coldaf_db}
+      DB_HOST: postgres
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      PORT: 4000
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── Frontend (React + Nginx) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+  # ── Reverse Proxy (Nginx) — Traefik routes here ──────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coldaf.rule=Host(`coldaf.ataflexsolutions.com`)"
+      - "traefik.http.routers.coldaf.entrypoints=websecure"
+      - "traefik.http.routers.coldaf.tls.certresolver=myresolver"
+      - "traefik.http.services.coldaf.loadbalancer.server.port=80"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.coldaf-http.rule=Host(`coldaf.ataflexsolutions.com`)"
+      - "traefik.http.routers.coldaf-http.entrypoints=web"
+      - "traefik.http.routers.coldaf-http.middlewares=coldaf-https-redirect"
+      - "traefik.http.middlewares.coldaf-https-redirect.redirectscheme.scheme=https"
+    networks:
+      - internal
+      - traefik
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  internal:
+    driver: bridge
+  traefik:
+    external: true

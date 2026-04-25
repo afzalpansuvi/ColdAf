@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(node -c src/routes/brands.js)",
+      "Bash(node -c src/routes/smtp.js)",
+      "Bash(node -c backend/src/routes/campaigns.js)",
+      "Bash(node -c src/routes/integrations.js)",
+      "Bash(node -c src/routes/webhookReceiver.js)",
+      "Bash(node -c src/routes/settings.js)",
+      "Bash(node -c src/routes/auditLogs.js)",
+      "Bash(node -c src/routes/notifications.js)",
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(claude mcp:*)",
+      "Read(//d/AI Builds/ColdAF Email Tool/$APPDATA/Claude/**)",
+      "Read(//d/AI Builds/ColdAF Email Tool/$HOME/.claude/**)",
+      "Bash(node -e ':*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\(Object.keys\\(l\\).filter\\(k => /hand|affili|dollar/i.test\\(k\\)\\).join\\(' '\\)\\)\")"
+    ]
+  }
+}
