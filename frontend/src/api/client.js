@@ -30,9 +30,10 @@ class ApiClient {
     }
 
     if (res.status === 401) {
-      // Don't redirect for auth check endpoints — AuthContext handles those
-      if (path === '/auth/me' || path === '/auth/refresh') {
-        throw new Error('Not authenticated');
+      // Don't redirect for auth endpoints — let the caller handle the error
+      if (path === '/auth/me' || path === '/auth/refresh' || path === '/auth/login') {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Not authenticated');
       }
       const refreshed = await this.refreshToken();
       if (refreshed) {
