@@ -4,9 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-// ---------------------------------------------------------------------------
-// Build connection config from environment
-// ---------------------------------------------------------------------------
 const connectionString = process.env.DATABASE_URL;
 
 const poolConfig = connectionString
@@ -19,17 +16,13 @@ const poolConfig = connectionString
       password: process.env.DB_PASSWORD || 'coldaf_password',
     };
 
-// ---------------------------------------------------------------------------
-// Run migration
-// ---------------------------------------------------------------------------
 async function migrate() {
-  // Discover all migration files in order
   const migrationsDir = path.resolve(__dirname, 'migrations');
   let migrationFiles;
   try {
     migrationFiles = fs.readdirSync(migrationsDir)
       .filter(f => f.endsWith('.sql'))
-      .sort(); // 001_..., 002_..., etc.
+      .sort();
   } catch (err) {
     console.error(`Failed to read migrations directory: ${migrationsDir}`);
     console.error(err.message);
@@ -51,15 +44,35 @@ async function migrate() {
     client = await pool.connect();
     console.log('Connected to PostgreSQL');
 
-    for (const file of migrationFiles) {
-      const filePath = path.join(migrationsDir, file);
-      const sql = fs.readFileSync(filePath, 'utf8');
-      console.log(`Executing migration: ${file}...`);
-      await client.query(sql);
-      console.log(`  ✓ ${file} completed`);
-    }
+    // Create migrations tracking table if it doesn't exist
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
-    console.log('All migrations completed successfully.');
+    // Get already-executed migrations
+    const result = await client.query('SELECT filename FROM _migrations ORDER BY filename');
+    const executed = new Set(result.rows.map(r => r.filename));
+
+    const pending = migrationFiles.filter(f => !executed.has(f));
+
+    if (pending.length === 0) {
+      console.log('All migrations already applied. Nothing to do.');
+    } else {
+      console.log(`${pending.length} pending migration(s) to run...`);
+      for (const file of pending) {
+        const filePath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(filePath, 'utf8');
+        console.log(`Executing migration: ${file}...`);
+        await client.query(sql);
+        await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
+        console.log(`  ✓ ${file} completed`);
+      }
+      console.log('All migrations completed successfully.');
+    }
   } catch (err) {
     console.error('Migration failed:');
     console.error(err.message);
