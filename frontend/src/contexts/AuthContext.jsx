@@ -61,23 +61,26 @@ export function AuthProvider({ children }) {
   useEffect(() => { fetchUser(); }, [fetchUser]);
 
   const login = async (email, password) => {
-    const data = await api.post('/auth/login', { email, password });
-    const loginData = data.data;
+    const res = await api.post('/auth/login', { email, password });
+    // Backend wraps in { success, data: { user, organization } }
+    const payload = res.data || res;
+    const u = payload.user;
 
-    // Flatten user data
-    const u = loginData.user;
+    if (!u) {
+      throw new Error('Unexpected login response');
+    }
+
     setUser({
       ...u,
       role: u.role?.name || u.role,
       permissions: u.role?.permissions || u.permissions || [],
     });
 
-    // Set org context from login response
-    if (loginData.organization) {
-      setOrganization(loginData.organization);
+    if (payload.organization) {
+      setOrganization(payload.organization);
     }
 
-    return data;
+    return res;
   };
 
   const logout = async () => {
