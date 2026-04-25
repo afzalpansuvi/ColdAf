@@ -79,17 +79,17 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.coldaf.rule=Host(`coldaf.ataflexsolutions.com`)"
-      - "traefik.http.routers.coldaf.entrypoints=websecure"
-      - "traefik.http.routers.coldaf.tls.certresolver=myresolver"
+      - "traefik.http.routers.coldaf.entrypoints=https"
+      - "traefik.http.routers.coldaf.tls=true"
+      - "traefik.http.routers.coldaf.tls.certresolver=letsencrypt"
       - "traefik.http.services.coldaf.loadbalancer.server.port=80"
-      # HTTP to HTTPS redirect
       - "traefik.http.routers.coldaf-http.rule=Host(`coldaf.ataflexsolutions.com`)"
-      - "traefik.http.routers.coldaf-http.entrypoints=web"
+      - "traefik.http.routers.coldaf-http.entrypoints=http"
       - "traefik.http.routers.coldaf-http.middlewares=coldaf-https-redirect"
       - "traefik.http.middlewares.coldaf-https-redirect.redirectscheme.scheme=https"
     networks:
       - internal
-      - traefik
+      - coolify
 
 volumes:
   postgres_data:
@@ -99,5 +99,5 @@ volumes:
 networks:
   internal:
     driver: bridge
-  traefik:
+  coolify:
     external: true
