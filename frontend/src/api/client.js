@@ -30,6 +30,10 @@ class ApiClient {
     }
 
     if (res.status === 401) {
+      // Don't redirect for auth check endpoints — AuthContext handles those
+      if (path === '/auth/me' || path === '/auth/refresh') {
+        throw new Error('Not authenticated');
+      }
       const refreshed = await this.refreshToken();
       if (refreshed) {
         return fetch(url, config).then(r => r.json());
