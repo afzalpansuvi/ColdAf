@@ -258,7 +258,7 @@ BEGIN
         UPDATE notifications SET organization_id = default_org_id WHERE organization_id IS NULL;
 
         -- Set the first admin user as org owner
-        SELECT id INTO admin_user_id
+        SELECT u.id INTO admin_user_id
         FROM users u JOIN roles r ON r.id = u.role_id
         WHERE r.name = 'admin'
         ORDER BY u.created_at ASC LIMIT 1;
