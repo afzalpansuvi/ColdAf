@@ -2,6 +2,10 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# Force development mode so devDependencies (Vite, etc.) are always installed
+# regardless of any NODE_ENV build arg passed by the CI/CD system
+ENV NODE_ENV=development
+
 # Install dependencies first for better caching
 COPY package.json package-lock.json* ./
 RUN npm install
