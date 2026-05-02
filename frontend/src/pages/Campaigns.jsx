@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
+import { useDebounce } from '../hooks/useDebounce';
 import { format } from 'date-fns';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
@@ -59,6 +60,7 @@ export default function Campaigns() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [brandFilter, setBrandFilter] = useState('');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [limit] = useState(15);
 
@@ -98,7 +100,7 @@ export default function Campaigns() {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (brandFilter) params.append('brand_id', brandFilter);
-      if (search.trim()) params.append('search', search.trim());
+      if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
       params.append('page', page);
       params.append('limit', limit);
 
@@ -112,7 +114,7 @@ export default function Campaigns() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, brandFilter, search, page, limit]);
+  }, [statusFilter, brandFilter, debouncedSearch, page, limit]);
 
   useEffect(() => {
     fetchCampaigns();
@@ -121,7 +123,7 @@ export default function Campaigns() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, brandFilter, search]);
+  }, [statusFilter, brandFilter, debouncedSearch]);
 
   // Form helpers
   const updateForm = (field, value) => {

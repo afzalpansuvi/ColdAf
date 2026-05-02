@@ -18,6 +18,9 @@ const { requirePlatformOwner } = require('../middleware/requirePlatformOwner');
 
 const router = express.Router();
 
+// Plan MRR values — single source of truth for dashboard and revenue endpoints
+const PLAN_MRR = { free: 0, starter: 9, pro: 29, agency: 79 };
+
 // Every admin route is gated
 router.use(authenticate);
 router.use(requirePlatformOwner);
@@ -37,15 +40,15 @@ async function safeQuery(sql, params = [], fallback = { rows: [] }) {
 // ═══════════════════════════════════════════════════════════════
 router.get('/dashboard', async (req, res) => {
   try {
-    const [orgs, users, emails30, mrr, campaigns] = await Promise.all([
+    const results = await Promise.allSettled([
       safeQuery("SELECT COUNT(*)::int AS count FROM organizations"),
       safeQuery("SELECT COUNT(*)::int AS count FROM users WHERE is_active = TRUE"),
       safeQuery("SELECT COUNT(*)::int AS count FROM emails_sent WHERE sent_at > NOW() - INTERVAL '30 days'"),
       safeQuery(`SELECT COALESCE(SUM(
           CASE plan
-            WHEN 'starter' THEN 9
-            WHEN 'pro' THEN 29
-            WHEN 'agency' THEN 249
+            WHEN 'starter' THEN ${PLAN_MRR.starter}
+            WHEN 'pro' THEN ${PLAN_MRR.pro}
+            WHEN 'agency' THEN ${PLAN_MRR.agency}
             ELSE 0
           END
         ), 0)::numeric AS mrr
@@ -53,16 +56,21 @@ router.get('/dashboard', async (req, res) => {
       safeQuery("SELECT COUNT(*)::int AS count FROM campaigns WHERE status = 'active'"),
     ]);
 
-    const mrrValue = Number(mrr.rows[0]?.mrr || 0);
+    // Safely extract a value from an allSettled result, returning fallback on rejection
+    const val = (r, fallback = 0) => r.status === 'fulfilled' ? (r.value?.rows?.[0] ?? fallback) : fallback;
+
+    const [orgs, users, emails30, mrr, campaigns] = results;
+
+    const mrrValue = Number(val(mrr, { mrr: 0 }).mrr || 0);
     return res.json({
       success: true,
       data: {
-        totalOrgs: orgs.rows[0]?.count || 0,
-        totalUsers: users.rows[0]?.count || 0,
-        emailsSent30d: emails30.rows[0]?.count || 0,
+        totalOrgs: val(orgs, { count: 0 }).count,
+        totalUsers: val(users, { count: 0 }).count,
+        emailsSent30d: val(emails30, { count: 0 }).count,
         mrr: mrrValue,
         arr: mrrValue * 12,
-        activeCampaigns: campaigns.rows[0]?.count || 0,
+        activeCampaigns: val(campaigns, { count: 0 }).count,
         churn30d: 0,
       },
     });
@@ -239,7 +247,7 @@ router.get('/revenue', async (req, res) => {
        GROUP BY plan
     `);
 
-    const planPrices = { free: 0, starter: 9, pro: 29, agency: 249 };
+    const planPrices = PLAN_MRR;
     const rows = planBreakdown.rows || [];
     const mrr = rows.reduce((sum, r) => sum + (planPrices[r.plan] || 0) * r.count, 0);
 
@@ -478,9 +486,9 @@ router.get('/pro-users', async (req, res) => {
              o.id AS org_id, o.name AS org_name, o.plan,
              o.emails_sent_this_month,
              CASE o.plan
-               WHEN 'starter' THEN 9
-               WHEN 'pro' THEN 29
-               WHEN 'agency' THEN 249
+               WHEN 'starter' THEN ${PLAN_MRR.starter}
+               WHEN 'pro' THEN ${PLAN_MRR.pro}
+               WHEN 'agency' THEN ${PLAN_MRR.agency}
                ELSE 0
              END AS mrr_contribution
         FROM users u

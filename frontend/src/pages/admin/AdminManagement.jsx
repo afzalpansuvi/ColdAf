@@ -5,9 +5,11 @@ import { Loader2, Plus, Shield, Trash2, X } from 'lucide-react';
 export default function AdminManagement() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ email: '', role: 'super_admin' });
   const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -26,25 +28,32 @@ export default function AdminManagement() {
   const create = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
       await api.post('/admin/admins', form);
       setShowModal(false);
       setForm({ email: '', role: 'super_admin' });
       load();
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to add admin.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const remove = async (id) => {
-    if (!window.confirm('Remove this admin? They will lose admin access immediately.')) return;
+    if (!window.confirm('Remove this admin? They will immediately lose all admin access to the platform.')) return;
+    setActionLoading(true);
+    setError(null);
     try {
       await api.delete(`/admin/admins/${id}`);
       load();
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to remove admin.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -60,6 +69,12 @@ export default function AdminManagement() {
           Add Admin
         </button>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="card !p-0 overflow-hidden">
         {loading ? (
@@ -108,7 +123,8 @@ export default function AdminManagement() {
                       {!a.is_platform_owner && (
                         <button
                           onClick={() => remove(a.id)}
-                          className="text-gray-400 hover:text-red-500 p-1"
+                          disabled={actionLoading}
+                          className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Remove"
                         >
                           <Trash2 className="w-4 h-4" />

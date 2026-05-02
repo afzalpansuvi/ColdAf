@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
+import { useDebounce } from '../hooks/useDebounce';
 import { format, formatDistanceToNow } from 'date-fns';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
@@ -100,6 +101,7 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -269,7 +271,7 @@ export default function Leads() {
       if (brandFilter) params.append('brand_id', brandFilter);
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (sourceFilter !== 'all') params.append('source_type', sourceFilter);
-      if (search.trim()) params.append('search', search.trim());
+      if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
       if (assignedFilter) params.append('assigned_to', assignedFilter);
@@ -286,7 +288,7 @@ export default function Leads() {
     } finally {
       setLoading(false);
     }
-  }, [brandFilter, statusFilter, sourceFilter, search, dateFrom, dateTo, assignedFilter, page]);
+  }, [brandFilter, statusFilter, sourceFilter, debouncedSearch, dateFrom, dateTo, assignedFilter, page]);
 
   useEffect(() => {
     fetchLeads();
@@ -295,7 +297,7 @@ export default function Leads() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [brandFilter, statusFilter, sourceFilter, search, dateFrom, dateTo, assignedFilter]);
+  }, [brandFilter, statusFilter, sourceFilter, debouncedSearch, dateFrom, dateTo, assignedFilter]);
 
   // ── Add lead ──────────────────────────────────────────────────────
   const handleAddLead = async (e) => {

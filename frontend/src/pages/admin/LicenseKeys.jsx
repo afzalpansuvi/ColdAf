@@ -12,6 +12,8 @@ const STATUS_COLORS = {
 export default function LicenseKeys() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ plan: 'pro', seats: 1, count: 1, expiresAt: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -33,6 +35,7 @@ export default function LicenseKeys() {
   const generate = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
       await api.post('/admin/license-keys/generate', {
         plan: form.plan,
@@ -45,19 +48,25 @@ export default function LicenseKeys() {
       setForm({ plan: 'pro', seats: 1, count: 1, expiresAt: '', notes: '' });
       load();
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to generate license keys.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const revoke = async (id) => {
-    if (!window.confirm('Revoke this license key? This cannot be undone.')) return;
+    if (!window.confirm('Revoke this license key? This action cannot be undone and will deactivate the key immediately.')) return;
+    setActionLoading(true);
+    setError(null);
     try {
       await api.post(`/admin/license-keys/${id}/revoke`);
       load();
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to revoke license key.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -77,6 +86,12 @@ export default function LicenseKeys() {
           Generate Keys
         </button>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="card !p-0 overflow-hidden">
         {loading ? (
@@ -132,7 +147,8 @@ export default function LicenseKeys() {
                       {k.status !== 'revoked' && (
                         <button
                           onClick={() => revoke(k.id)}
-                          className="text-gray-400 hover:text-red-500 p-1"
+                          disabled={actionLoading}
+                          className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Revoke"
                         >
                           <Ban className="w-4 h-4" />

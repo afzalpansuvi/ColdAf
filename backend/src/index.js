@@ -426,7 +426,7 @@ app.get('/unsubscribe/:leadId', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/unsubscribe — JSON API for React unsubscribe page
 // ---------------------------------------------------------------------------
-app.post('/api/unsubscribe', async (req, res) => {
+app.post('/api/unsubscribe', loginLimiter, async (req, res) => {
   try {
     const { token, email } = req.body;
     if (!token || !email) {

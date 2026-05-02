@@ -44,6 +44,11 @@ module.exports = {
   gemini: {
     apiKey: process.env.GOOGLE_GEMINI_API_KEY || '',
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI,
+  },
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY || '',
   },

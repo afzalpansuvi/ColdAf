@@ -5,6 +5,8 @@ import { Loader2, Plus, Trash2, Tag, X } from 'lucide-react';
 export default function DiscountCodes() {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     code: '',
@@ -33,6 +35,7 @@ export default function DiscountCodes() {
   const create = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
       await api.post('/admin/discount-codes', {
         code: form.code.toUpperCase(),
@@ -46,19 +49,25 @@ export default function DiscountCodes() {
       setForm({ code: '', type: 'percent', amount: 10, maxUses: '', expiresAt: '', appliesToPlan: '' });
       load();
     } catch (err) {
-      alert(err.message || 'Failed to create code');
+      console.error(err);
+      setError(err.message || 'Failed to create discount code.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const remove = async (id) => {
-    if (!window.confirm('Deactivate this discount code?')) return;
+    if (!window.confirm('Deactivate this discount code? It will no longer be accepted at checkout.')) return;
+    setActionLoading(true);
+    setError(null);
     try {
       await api.delete(`/admin/discount-codes/${id}`);
       load();
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to deactivate discount code.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -74,6 +83,12 @@ export default function DiscountCodes() {
           Create Code
         </button>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="card !p-0 overflow-hidden">
         {loading ? (
@@ -122,7 +137,8 @@ export default function DiscountCodes() {
                       {c.is_active && (
                         <button
                           onClick={() => remove(c.id)}
-                          className="text-gray-400 hover:text-red-500 p-1"
+                          disabled={actionLoading}
+                          className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Deactivate"
                         >
                           <Trash2 className="w-4 h-4" />

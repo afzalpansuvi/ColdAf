@@ -94,7 +94,7 @@ router.get('/callback', async (req, res) => {
     <script>
       try {
         if (window.opener) {
-          window.opener.postMessage(${JSON.stringify(payload)}, '*');
+          window.opener.postMessage(${JSON.stringify(payload)}, window.location.origin);
         }
       } catch (_) {}
       window.close();

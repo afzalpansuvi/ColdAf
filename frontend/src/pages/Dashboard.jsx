@@ -230,7 +230,7 @@ export default function Dashboard() {
     const qs = `date_from=${dateFrom}&date_to=${dateTo}${brandId ? `&brand_id=${brandId}` : ''}`;
 
     try {
-      const [overviewRes, timelineRes, leadStatusRes, subjectsRes, campaignsRes] = await Promise.all([
+      const results = await Promise.allSettled([
         api.get(`/analytics/overview?${qs}`),
         api.get(`/analytics/timeline?date_from=${dateFrom}&date_to=${dateTo}`),
         api.get('/analytics/lead-status-distribution'),
@@ -238,7 +238,15 @@ export default function Dashboard() {
         api.get('/analytics/campaigns?limit=5'),
       ]);
 
+      const getVal = (result, fallback) => result.status === 'fulfilled' ? result.value : fallback;
+
       if (mountedRef.current) {
+        const overviewRes = getVal(results[0], { data: {} });
+        const timelineRes = getVal(results[1], { data: [] });
+        const leadStatusRes = getVal(results[2], { data: [] });
+        const subjectsRes = getVal(results[3], { data: [] });
+        const campaignsRes = getVal(results[4], { data: [] });
+
         setOverview(overviewRes.data || {});
         setTimeline(
           (timelineRes.data || []).map((d) => ({
@@ -249,6 +257,11 @@ export default function Dashboard() {
         setLeadDistribution(leadStatusRes.data || []);
         setTopSubjects(subjectsRes.data || []);
         setCampaigns(campaignsRes.data || []);
+
+        const anyFailed = results.some((r) => r.status === 'rejected');
+        if (anyFailed) {
+          setError('Some dashboard data could not be loaded.');
+        }
       }
     } catch (err) {
       if (mountedRef.current) {

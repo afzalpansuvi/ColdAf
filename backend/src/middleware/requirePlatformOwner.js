@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
  *
  * Must be placed AFTER the `authenticate` middleware in the chain.
  */
-const PLATFORM_OWNER_EMAIL = 'apansuvi1@gmail.com';
+const PLATFORM_OWNER_EMAIL = process.env.PLATFORM_OWNER_EMAIL;
 
 function requirePlatformOwner(req, res, next) {
   if (!req.user) {

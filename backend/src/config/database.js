@@ -13,6 +13,10 @@ pool.on('error', (err) => {
   logger.error('Unexpected database pool error', err);
 });
 
+pool.on('connect', (client) => {
+  client.query("SET statement_timeout = '10s'").catch(() => {});
+});
+
 const query = async (text, params) => {
   const start = Date.now();
   const result = await pool.query(text, params);

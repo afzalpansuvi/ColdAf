@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PendingApproval from './pages/PendingApproval';
@@ -87,18 +88,21 @@ export default function App() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/pending-approval" element={<PendingApproval />} />
-        <Route path="/invite/:token" element={<AcceptInvite />} />
-        <Route path="/unsubscribe" element={<Unsubscribe />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/pending-approval" element={<PendingApproval />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary>
     <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/signup" element={<Navigate to="/" replace />} />
@@ -163,5 +167,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </ErrorBoundary>
   );
 }

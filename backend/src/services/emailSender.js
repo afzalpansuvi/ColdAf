@@ -4,6 +4,9 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const { encrypt, decrypt } = require('../utils/encryption');
 
+// Prevent email header injection by stripping CR, LF, and tab characters.
+const sanitizeHeader = (v) => String(v ?? '').replace(/[\r\n\t]/g, ' ').trim();
+
 // ---------------------------------------------------------------------------
 // Transport / client cache (keyed by smtp account id) to avoid recreating
 // connections on every send.
@@ -199,10 +202,10 @@ async function sendViaSMTP({ smtpAccount, to, from, fromName, subject, bodyHtml,
   }
 
   const mailOptions = {
-    from: fromName ? `"${fromName}" <${from}>` : from,
+    from: sanitizeHeader(fromName) ? `"${sanitizeHeader(fromName)}" <${from}>` : from,
     to,
-    replyTo: replyTo || from,
-    subject,
+    replyTo: sanitizeHeader(replyTo) || from,
+    subject: sanitizeHeader(subject),
     html: finalBodyHtml,
     text: bodyText,
     headers,
@@ -264,10 +267,10 @@ async function sendViaSendGrid({ smtpAccount, to, from, fromName, subject, bodyH
     to,
     from: {
       email: from,
-      name: fromName || undefined,
+      name: sanitizeHeader(fromName) || undefined,
     },
-    replyTo: replyTo || from,
-    subject,
+    replyTo: sanitizeHeader(replyTo) || from,
+    subject: sanitizeHeader(subject),
     html: finalBodyHtml,
     text: bodyText,
     headers,
@@ -322,7 +325,7 @@ async function sendViaMailgun({ smtpAccount, to, from, fromName, subject, bodyHt
     key: apiKey,
   });
 
-  const senderAddress = fromName ? `${fromName} <${from}>` : from;
+  const senderAddress = sanitizeHeader(fromName) ? `${sanitizeHeader(fromName)} <${from}>` : from;
 
   const headers = { ...customHeaders };
   if (unsubscribeUrl) {
@@ -349,10 +352,10 @@ async function sendViaMailgun({ smtpAccount, to, from, fromName, subject, bodyHt
   const msgData = {
     from: senderAddress,
     to: [to],
-    subject,
+    subject: sanitizeHeader(subject),
     html: finalBodyHtml,
     text: bodyText,
-    'h:Reply-To': replyTo || from,
+    'h:Reply-To': sanitizeHeader(replyTo) || from,
     'o:tracking-clicks': 'no',
     'o:tracking-opens': 'no',
   };
@@ -429,10 +432,10 @@ async function sendViaGmail({ smtpAccount, to, from, fromName, subject, bodyHtml
   }
 
   const mailOptions = {
-    from: fromName ? `"${fromName}" <${gmailEmail}>` : gmailEmail,
+    from: sanitizeHeader(fromName) ? `"${sanitizeHeader(fromName)}" <${gmailEmail}>` : gmailEmail,
     to,
-    replyTo: replyTo || from || gmailEmail,
-    subject,
+    replyTo: sanitizeHeader(replyTo) || from || gmailEmail,
+    subject: sanitizeHeader(subject),
     html: finalBodyHtml,
     text: bodyText,
     headers,

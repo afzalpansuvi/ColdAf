@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 
+// Required env var: VITE_PLATFORM_OWNER_EMAIL=apansuvi1@gmail.com
+
 const AuthContext = createContext(null);
 
 // Platform-level roles (not tied to an org)
@@ -23,7 +25,7 @@ export function AuthProvider({ children }) {
         id: 'dev-admin',
         name: 'Platform Owner',
         full_name: 'Platform Owner',
-        email: 'apansuvi1@gmail.com',
+        email: import.meta.env.VITE_PLATFORM_OWNER_EMAIL,
         role: 'platform_owner',
         is_platform_owner: true,
         permissions: ['*'],

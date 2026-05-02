@@ -5,6 +5,8 @@ import { Loader2, Search, Ban, RotateCcw, Users } from 'lucide-react';
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [plan, setPlan] = useState('');
   const [status, setStatus] = useState('');
@@ -31,11 +33,31 @@ export default function AdminUsers() {
   }, [load]);
 
   const suspend = async (id) => {
-    if (!window.confirm('Suspend this user?')) return;
-    try { await api.post(`/admin/users/${id}/suspend`); load(); } catch (e) { alert(e.message); }
+    if (!window.confirm('Suspend this user? They will be locked out of their account immediately.')) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await api.post(`/admin/users/${id}/suspend`);
+      load();
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Failed to suspend user.');
+    } finally {
+      setActionLoading(false);
+    }
   };
   const reactivate = async (id) => {
-    try { await api.post(`/admin/users/${id}/reactivate`); load(); } catch (e) { alert(e.message); }
+    setActionLoading(true);
+    setError(null);
+    try {
+      await api.post(`/admin/users/${id}/reactivate`);
+      load();
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Failed to reactivate user.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -44,6 +66,12 @@ export default function AdminUsers() {
         <h1 className="text-2xl font-bold text-gray-900">Users</h1>
         <p className="text-sm text-gray-500 mt-1">{users.length} user{users.length !== 1 ? 's' : ''}</p>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="card !py-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -119,7 +147,8 @@ export default function AdminUsers() {
                       {u.is_active ? (
                         <button
                           onClick={() => suspend(u.id)}
-                          className="text-gray-400 hover:text-red-500 p-1"
+                          disabled={actionLoading}
+                          className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Suspend"
                         >
                           <Ban className="w-4 h-4" />
@@ -127,7 +156,8 @@ export default function AdminUsers() {
                       ) : (
                         <button
                           onClick={() => reactivate(u.id)}
-                          className="text-gray-400 hover:text-green-500 p-1"
+                          disabled={actionLoading}
+                          className="text-gray-400 hover:text-green-500 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Reactivate"
                         >
                           <RotateCcw className="w-4 h-4" />

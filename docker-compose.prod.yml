@@ -78,12 +78,12 @@ services:
       - frontend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.coldaf.rule=Host(`coldaf.ataflexsolutions.com`)"
+      - "traefik.http.routers.coldaf.rule=Host(`${DOMAIN:-coldaf.ataflexsolutions.com}`)"
       - "traefik.http.routers.coldaf.entrypoints=https"
       - "traefik.http.routers.coldaf.tls=true"
       - "traefik.http.routers.coldaf.tls.certresolver=letsencrypt"
       - "traefik.http.services.coldaf.loadbalancer.server.port=80"
-      - "traefik.http.routers.coldaf-http.rule=Host(`coldaf.ataflexsolutions.com`)"
+      - "traefik.http.routers.coldaf-http.rule=Host(`${DOMAIN:-coldaf.ataflexsolutions.com}`)"
       - "traefik.http.routers.coldaf-http.entrypoints=http"
       - "traefik.http.routers.coldaf-http.middlewares=coldaf-https-redirect"
       - "traefik.http.middlewares.coldaf-https-redirect.redirectscheme.scheme=https"
