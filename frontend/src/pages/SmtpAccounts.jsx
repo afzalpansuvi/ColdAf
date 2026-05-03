@@ -17,6 +17,10 @@ import {
   Shield,
   KeyRound,
   Activity,
+  ShieldCheck,
+  ShieldX,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -59,6 +63,184 @@ function HealthPill({ label, count, colorClasses }) {
   );
 }
 
+// ── DNS / blacklist badge helpers ────────────────────────────────────
+function ValidBadge({ ok, label }) {
+  return ok ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+      <CheckCircle2 className="w-3.5 h-3.5" />
+      {label}
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+      <XCircle className="w-3.5 h-3.5" />
+      {label}
+    </span>
+  );
+}
+
+function SpamScoreBadge({ score, level }) {
+  if (score == null) return <span className="text-gray-400 text-xs">N/A</span>;
+  const colors =
+    level === 'good'
+      ? 'bg-green-100 text-green-700'
+      : level === 'warning'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-red-100 text-red-700';
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${colors}`}>
+      {score.toFixed(1)} / 10
+    </span>
+  );
+}
+
+function DeliverabilityTab({ accountId, onRunCheck }) {
+  const [data, setData] = useState(undefined); // undefined = not loaded yet
+  const [loadingCheck, setLoadingCheck] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!accountId) return;
+    setFetchError(null);
+    try {
+      const res = await api.get(`/smtp/${accountId}/deliverability`);
+      setData(res.data || null);
+    } catch (err) {
+      setFetchError(err.message || 'Failed to load deliverability data.');
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleRunCheck = async () => {
+    setLoadingCheck(true);
+    setFetchError(null);
+    try {
+      const res = await api.post(`/smtp/${accountId}/deliverability/check`);
+      // Refetch the persisted result to include all fields
+      await load();
+      if (onRunCheck) onRunCheck(res.data);
+    } catch (err) {
+      setFetchError(err.message || 'Deliverability check failed.');
+    } finally {
+      setLoadingCheck(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Run Check button + timestamp */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-800">Deliverability Check</h3>
+          {data && data.checkedAt && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Last checked: {format(new Date(data.checkedAt), 'MMM d, yyyy HH:mm')}
+            </p>
+          )}
+          {!data && !fetchError && (
+            <p className="text-xs text-gray-400 mt-0.5">No check run yet.</p>
+          )}
+        </div>
+        <button
+          onClick={handleRunCheck}
+          disabled={loadingCheck}
+          className="btn-primary flex items-center gap-2 text-xs px-3 py-1.5"
+        >
+          {loadingCheck ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3.5 h-3.5" />
+          )}
+          {loadingCheck ? 'Checking...' : 'Run Check'}
+        </button>
+      </div>
+
+      {fetchError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg text-xs text-red-700 bg-red-50 border border-red-200">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          {fetchError}
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* DNS Auth badges */}
+          <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">DNS Authentication</p>
+            <div className="flex flex-wrap gap-3">
+              <ValidBadge ok={data.spf} label="SPF" />
+              <ValidBadge ok={data.dkim} label="DKIM" />
+              <ValidBadge ok={data.dmarc} label="DMARC" />
+            </div>
+            {data.spfRecord && (
+              <p className="text-[11px] font-mono text-gray-500 bg-gray-50 rounded px-2 py-1 truncate" title={data.spfRecord}>
+                {data.spfRecord}
+              </p>
+            )}
+            {data.dmarcRecord && (
+              <p className="text-[11px] font-mono text-gray-500 bg-gray-50 rounded px-2 py-1 truncate" title={data.dmarcRecord}>
+                {data.dmarcRecord}
+              </p>
+            )}
+          </div>
+
+          {/* Blacklist status */}
+          {data.blacklist && (
+            <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blacklist Status</p>
+                {data.blacklist.listed ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                    <ShieldX className="w-3.5 h-3.5" /> Listed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Clean
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {(data.blacklist.details || []).map((item) => (
+                  <div key={item.list} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 font-mono">{item.list}</span>
+                    {item.listed ? (
+                      <span className="text-red-600 font-semibold">Listed</span>
+                    ) : (
+                      <span className="text-green-600">Clean</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Spam score */}
+          {data.spamScore != null && (
+            <div className="rounded-xl border border-gray-200 p-4 space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Spam Score</p>
+              <div className="flex items-center gap-3">
+                <SpamScoreBadge score={data.spamScore} level={data.spamLevel} />
+              </div>
+              {data.spamFlags && data.spamFlags.length > 0 && (
+                <ul className="space-y-1 mt-2">
+                  {data.spamFlags.map((f) => (
+                    <li key={f.id} className="text-xs text-gray-500 flex gap-2">
+                      <span className="text-amber-500 font-mono">+{f.score}</span>
+                      {f.description}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════
@@ -81,6 +263,8 @@ export default function SmtpAccounts() {
   const [form, setForm] = useState({ ...DEFAULT_FORM });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  // Modal tab: 'config' | 'deliverability'
+  const [modalTab, setModalTab] = useState('config');
 
   // ── Fetch data ──────────────────────────────────────────────────────
   const fetchAccounts = useCallback(async () => {
@@ -126,6 +310,7 @@ export default function SmtpAccounts() {
     setEditingAccount(null);
     setForm({ ...DEFAULT_FORM });
     setFormError(null);
+    setModalTab('config');
     setShowModal(true);
   };
 
@@ -204,6 +389,7 @@ export default function SmtpAccounts() {
       isActive: account.isActive !== false,
     });
     setFormError(null);
+    setModalTab('config');
     setShowModal(true);
   };
 
@@ -482,6 +668,44 @@ export default function SmtpAccounts() {
         title={editingAccount ? 'Edit SMTP Account' : 'Add SMTP Account'}
         size="xl"
       >
+        {/* Tab bar — only show Deliverability tab when editing an existing account */}
+        {editingAccount && (
+          <div className="flex gap-1 mb-6 border-b border-gray-200 -mt-2">
+            <button
+              type="button"
+              onClick={() => setModalTab('config')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                modalTab === 'config'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Configuration
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalTab('deliverability')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                modalTab === 'deliverability'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Deliverability
+            </button>
+          </div>
+        )}
+
+        {/* Deliverability tab content */}
+        {modalTab === 'deliverability' && editingAccount && (
+          <DeliverabilityTab
+            accountId={editingAccount.id || editingAccount._id}
+          />
+        )}
+
+        {/* Config tab content (always shown for new accounts, or when tab = config) */}
+        {modalTab === 'config' && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {formError && (
             <div className="flex items-center gap-3 p-3 rounded-xl text-sm text-red-700" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
@@ -794,6 +1018,7 @@ export default function SmtpAccounts() {
             </button>
           </div>
         </form>
+        )}
       </Modal>
     </div>
   );

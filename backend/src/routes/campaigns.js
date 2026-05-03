@@ -5,6 +5,7 @@ const { authenticate } = require('../middleware/auth');
 const { requireRole, requirePermission } = require('../middleware/rbac');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const audit = require('../services/audit');
+const { getOptimalSendWindows, adjustCampaignSchedule } = require('../services/sendTimeOptimizer');
 
 const router = express.Router();
 
@@ -53,6 +54,7 @@ function mapCampaign(c) {
     totalClicked: c.total_clicked,
     totalReplied: c.total_replied,
     totalBounced: c.total_bounced,
+    sendTimeOptimization: c.send_time_optimization,
     createdBy: c.created_by,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
@@ -289,6 +291,7 @@ router.post('/', requirePermission('campaigns.manage'), async (req, res) => {
       isMultiBrand,
       multiBrandStrategy,
       multiBrandStaggerDays,
+      sendTimeOptimization,
     } = req.body;
 
     // Validation
@@ -316,8 +319,8 @@ router.post('/', requirePermission('campaigns.manage'), async (req, res) => {
          daily_send_limit, min_delay_minutes, max_delay_minutes,
          send_window_start, send_window_end, send_days,
          followup_count, followup_delays, auto_pause_bounce_rate,
-         auto_pause_spam_rate, auto_pause_enabled, created_by, organization_id)
-       VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+         auto_pause_spam_rate, auto_pause_enabled, send_time_optimization, created_by, organization_id)
+       VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        RETURNING *`,
       [
         name.trim(),
@@ -339,6 +342,7 @@ router.post('/', requirePermission('campaigns.manage'), async (req, res) => {
         autoPauseBounceRate != null ? autoPauseBounceRate : 5.0,
         autoPauseSpamRate != null ? autoPauseSpamRate : 1.0,
         autoPauseEnabled != null ? autoPauseEnabled : true,
+        sendTimeOptimization != null ? sendTimeOptimization : false,
         req.user.id,
         req.organizationId,
       ]
@@ -441,6 +445,7 @@ router.put('/:id', requirePermission('campaigns.manage'), async (req, res) => {
       isMultiBrand,
       multiBrandStrategy,
       multiBrandStaggerDays,
+      sendTimeOptimization,
     } = req.body;
 
     // Build dynamic SET clause
@@ -523,6 +528,10 @@ router.put('/:id', requirePermission('campaigns.manage'), async (req, res) => {
     if (autoPauseEnabled !== undefined) {
       setClauses.push(`auto_pause_enabled = $${paramIndex++}`);
       params.push(autoPauseEnabled);
+    }
+    if (sendTimeOptimization !== undefined) {
+      setClauses.push(`send_time_optimization = $${paramIndex++}`);
+      params.push(sendTimeOptimization);
     }
 
     if (setClauses.length === 0 && !brandIds) {
@@ -733,6 +742,16 @@ router.post('/:id/start', requirePermission('campaigns.manage'), async (req, res
     );
 
     await client.query('COMMIT');
+
+    // If send_time_optimization is enabled, stagger queued leads to optimal windows
+    if (campaign.send_time_optimization) {
+      try {
+        const adjusted = await adjustCampaignSchedule(id);
+        logger.info('Send-time optimization applied', { campaignId: id, adjusted });
+      } catch (optiErr) {
+        logger.warn('Send-time optimization failed (non-fatal)', { error: optiErr.message, campaignId: id });
+      }
+    }
 
     // Audit log
     await audit.logAction({
@@ -1115,6 +1134,35 @@ router.delete('/:id', requirePermission('campaigns.manage'), async (req, res) =>
     });
   } finally {
     client.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/send-time-recommendation — optimal send windows for this campaign
+// ---------------------------------------------------------------------------
+router.get('/:id/send-time-recommendation', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const campaignResult = await db.query(
+      `SELECT c.id,
+              (SELECT brand_id FROM campaign_brands WHERE campaign_id = c.id LIMIT 1) AS brand_id
+       FROM campaigns c
+       WHERE c.id = $1 AND c.organization_id = $2`,
+      [id, req.organizationId]
+    );
+
+    if (campaignResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Campaign not found.' });
+    }
+
+    const { brand_id: brandId } = campaignResult.rows[0];
+    const windows = await getOptimalSendWindows(req.organizationId, brandId);
+
+    return res.json({ success: true, data: windows });
+  } catch (err) {
+    logger.error('Send-time recommendation error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to fetch send-time recommendation.' });
   }
 });
 

@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS send_time_optimization BOOLEAN DEFAULT FALSE;
+
+COMMIT;

@@ -22,6 +22,8 @@ import {
   RotateCcw,
   Settings2,
   Shield,
+  Zap,
+  Info,
 } from 'lucide-react';
 
 const CAMPAIGN_STATUSES = ['all', 'draft', 'active', 'paused', 'completed', 'cancelled'];
@@ -50,6 +52,7 @@ const DEFAULT_FORM = {
   autoPauseEnabled: true,
   bounceRateThreshold: 5,
   spamRateThreshold: 1,
+  sendTimeOptimization: false,
 };
 
 export default function Campaigns() {
@@ -205,6 +208,7 @@ export default function Campaigns() {
           bounceRateThreshold: form.bounceRateThreshold,
           spamRateThreshold: form.spamRateThreshold,
         },
+        sendTimeOptimization: form.sendTimeOptimization,
       };
 
       await api.post('/campaigns', body);
@@ -743,6 +747,32 @@ export default function Campaigns() {
                 </div>
               </div>
             )}
+          </fieldset>
+
+          {/* ── AI Send-Time Optimization ─────────────────────── */}
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-brand-600" />
+              AI Send-Time Optimization
+            </legend>
+            <div className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
+              <label className="relative inline-flex items-center cursor-pointer mt-0.5 flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={form.sendTimeOptimization}
+                  onChange={(e) => updateForm('sendTimeOptimization', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+              </label>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">AI Send-Time Optimization</p>
+                <p className="text-xs text-gray-500 mt-0.5 flex items-start gap-1">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
+                  Staggers sends to your historically best open-rate windows
+                </p>
+              </div>
+            </div>
           </fieldset>
 
           {/* ── Actions ───────────────────────────────────────── */}

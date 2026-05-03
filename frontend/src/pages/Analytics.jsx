@@ -201,6 +201,9 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Best send windows
+  const [bestWindows, setBestWindows] = useState([]);
+
   // ── Fetch brands + campaigns for dropdowns ─────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -278,6 +281,21 @@ export default function Analytics() {
         setComparison(results[8].data || null);
       } else {
         setComparison(null);
+      }
+
+      // Fetch best send windows using any available campaign
+      try {
+        const campsRes = await api.get('/campaigns?limit=1&status=active');
+        const camps = campsRes.data?.campaigns || campsRes.data || [];
+        const firstCampaignId = camps[0]?.id || camps[0]?._id;
+        if (firstCampaignId) {
+          const windowsRes = await api.get(`/campaigns/${firstCampaignId}/send-time-recommendation`);
+          setBestWindows(windowsRes.data || []);
+        } else {
+          setBestWindows([]);
+        }
+      } catch {
+        setBestWindows([]);
       }
     } catch (err) {
       setError(err.message || 'Failed to load analytics.');
@@ -840,6 +858,51 @@ export default function Analytics() {
           </div>
         )}
       </div>
+
+      {/* ── f0) Best Send Windows summary ─────────────────────────── */}
+      {bestWindows.length > 0 && (
+        <div className="card">
+          <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-brand-600" />
+            Best Send Windows
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {bestWindows.map((w, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-xl border flex items-center gap-4 ${
+                  idx === 0
+                    ? 'border-brand-300 bg-brand-50'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                    idx === 0
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{w.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {w.isDefault
+                      ? 'Recommended default'
+                      : w.openRate != null
+                      ? `${(w.openRate * 100).toFixed(1)}% open rate`
+                      : 'Historical data'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-3">
+            Based on historical open patterns for your active campaigns. Enable AI Send-Time Optimization on a campaign to automatically schedule sends to these windows.
+          </p>
+        </div>
+      )}
 
       {/* ── f) Send Time Heatmap ───────────────────────────────────── */}
       <div className="card">
