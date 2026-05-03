@@ -658,6 +658,28 @@ export default function Replies() {
                 <div ref={threadEndRef} />
               </div>
 
+              {/* Suggested reply card — shown for the latest inbound message */}
+              {(() => {
+                const lastInbound = [...threadMessages].reverse().find(m => m.direction === 'inbound' && m.suggestedResponse);
+                if (!lastInbound) return null;
+                return (
+                  <div className="px-5 pb-3 flex-shrink-0">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-1.5 mb-2 text-sm font-medium text-amber-700">
+                        <span>Suggested Reply</span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{lastInbound.suggestedResponse}</p>
+                      <button
+                        onClick={() => setReplyBody(lastInbound.suggestedResponse)}
+                        className="mt-2 text-xs px-3 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors font-medium"
+                      >
+                        Use This
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Reply composer */}
               <div className="border-t border-gray-100 bg-gray-50/60 flex-shrink-0">
                 <div

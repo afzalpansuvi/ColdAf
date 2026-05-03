@@ -693,6 +693,8 @@ export default function Leads() {
                   <tr className="">
                     <th className="table-header">Full Name</th>
                     <th className="table-header">Email</th>
+                    <th className="table-header">Company</th>
+                    <th className="table-header">Job Title</th>
                     <th className="table-header">Industry</th>
                     <th className="table-header">Lead Type</th>
                     <th className="table-header">Score</th>
@@ -715,6 +717,12 @@ export default function Leads() {
                       </td>
                       <td className="table-cell text-gray-500 max-w-[200px] truncate" title={lead.email}>
                         {lead.email || '--'}
+                      </td>
+                      <td className="table-cell text-gray-500 max-w-[150px] truncate" title={lead.company_name}>
+                        {lead.company_name || '--'}
+                      </td>
+                      <td className="table-cell text-gray-500 max-w-[150px] truncate" title={lead.job_title}>
+                        {lead.job_title || '--'}
                       </td>
                       <td className="table-cell text-gray-500">{lead.industry || '--'}</td>
                       <td className="table-cell text-gray-500">{lead.leadType || '--'}</td>

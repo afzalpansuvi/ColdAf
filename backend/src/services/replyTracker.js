@@ -6,6 +6,113 @@ const { decrypt } = require('../utils/encryption');
 const { createNotification, triggerEventNotifications } = require('./notifications');
 
 // ---------------------------------------------------------------------------
+// OOO Detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the subject or body text matches common out-of-office patterns.
+ *
+ * @param {string} subject
+ * @param {string} bodyText
+ * @returns {boolean}
+ */
+function detectOutOfOffice(subject = '', bodyText = '') {
+  const oooPatterns = [
+    /out of (the )?office/i,
+    /on (annual )?leave/i,
+    /away from (the )?office/i,
+    /automatic(ally)? reply/i,
+    /auto[\s-]?reply/i,
+    /i('m| am) currently (out|away|unavailable)/i,
+    /away until/i,
+    /returning (on|around)/i,
+    /back (on|in the office)/i,
+    /holiday (from|until)/i,
+  ];
+  const text = `${subject} ${bodyText}`;
+  return oooPatterns.some(p => p.test(text));
+}
+
+/**
+ * Attempts to extract a return date from an OOO email body.
+ * Returns a Date if found and parseable, otherwise null.
+ *
+ * @param {string} bodyText
+ * @returns {Date|null}
+ */
+function extractReturnDate(bodyText = '') {
+  const datePatterns = [
+    /returning (?:on |around )?(\w+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)/i,
+    /back (?:on |in the office )?(\w+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)/i,
+    /return(?:ing)? (?:on )?(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i,
+  ];
+  for (const pattern of datePatterns) {
+    const match = bodyText.match(pattern);
+    if (match) {
+      const parsed = new Date(match[1]);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// AI Suggested Reply Generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Generates a short suggested reply using the AI provider based on sentiment.
+ * Returns null on failure or if no prompt is defined for the given sentiment.
+ *
+ * @param {string} originalSubject
+ * @param {string} replyText
+ * @param {string} sentiment
+ * @param {Object|null} brand  - Brand row (may include calendly_link, ai_system_prompt)
+ * @param {string|null} organizationId
+ * @returns {Promise<string|null>}
+ */
+async function generateSuggestedReply(originalSubject, replyText, sentiment, brand, organizationId) {
+  const prompts = {
+    interested: `The prospect replied with interest to a cold email. Write a brief, friendly reply (2-3 sentences) that:
+1. Acknowledges their interest warmly
+2. Suggests booking a quick call${brand && brand.calendly_link ? ` using this link: ${brand.calendly_link}` : ''}
+3. Ends with a clear call to action
+
+Prospect's reply: "${replyText}"
+Keep the response professional and concise.`,
+
+    objection: `The prospect raised an objection in response to a cold email. Write a brief, empathetic reply (2-3 sentences) that:
+1. Acknowledges their concern without being defensive
+2. Briefly addresses the objection
+3. Keeps the door open
+
+Brand context: ${brand && brand.ai_system_prompt ? brand.ai_system_prompt.slice(0, 200) : ''}
+Prospect's objection: "${replyText}"`,
+
+    not_interested: `Write a short, gracious reply (1-2 sentences) to someone who said they're not interested in a cold email. Be respectful, thank them, and leave the door open for the future.
+Their reply: "${replyText}"`,
+  };
+
+  const prompt = prompts[sentiment];
+  if (!prompt) return null;
+
+  try {
+    const { generateCompletion } = require('./aiProvider');
+    const response = await generateCompletion({
+      model: 'claude-haiku-3-5',
+      systemPrompt: 'You write concise, professional cold-email follow-up replies. Return only the reply text with no preamble.',
+      userPrompt: prompt,
+      maxTokens: 200,
+      organizationId: organizationId || null,
+    });
+    return (response.text || '').trim() || null;
+  } catch (err) {
+    logger.warn('Failed to generate reply suggestion', { error: err.message });
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -274,13 +381,61 @@ async function checkReplies(smtpAccount) {
           continue;
         }
 
+        const orgId = smtpAccount.organization_id || null;
+
+        // --- OOO detection: handle before general classification ---
+        if (detectOutOfOffice(subject, bodyText || '')) {
+          const returnDate = extractReturnDate(bodyText || '');
+          const resumeAt = returnDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+          // Insert reply_messages row with sentiment 'ooo'
+          await db.query(
+            `INSERT INTO reply_messages
+              (email_id, lead_id, campaign_id, brand_id, smtp_account_id,
+               direction, from_email, to_email, subject, body_html, body_text,
+               message_id, in_reply_to, sentiment, is_read, organization_id)
+             VALUES ($1, $2, $3, $4, $5, 'inbound', $6, $7, $8, $9, $10, $11, $12, 'ooo', FALSE, $13)`,
+            [
+              matchedEmail.id,
+              matchedEmail.lead_id,
+              matchedEmail.campaign_id,
+              matchedEmail.brand_id,
+              matchedEmail.smtp_account_id,
+              fromAddress,
+              toAddress,
+              subject,
+              bodyHtml,
+              bodyText,
+              messageId,
+              inReplyTo,
+              orgId,
+            ]
+          );
+
+          // Update campaign_leads: pause sequence until return date
+          await db.query(
+            `UPDATE campaign_leads SET status = 'ooo', next_followup_at = $1, updated_at = NOW()
+             WHERE lead_id = $2 AND campaign_id = $3`,
+            [resumeAt, matchedEmail.lead_id, matchedEmail.campaign_id]
+          );
+
+          await markAsSeen(imap, uid);
+          processed++;
+          logger.info(`OOO reply from ${fromAddress}. Resuming sequence at ${resumeAt.toISOString()}`, {
+            leadId: matchedEmail.lead_id,
+            campaignId: matchedEmail.campaign_id,
+          });
+          continue;
+        }
+
         // --- Insert reply_messages record (with organization scope) ---
-        await db.query(
+        const insertResult = await db.query(
           `INSERT INTO reply_messages
             (email_id, lead_id, campaign_id, brand_id, smtp_account_id,
              direction, from_email, to_email, subject, body_html, body_text,
              message_id, in_reply_to, is_read, organization_id)
-           VALUES ($1, $2, $3, $4, $5, 'inbound', $6, $7, $8, $9, $10, $11, $12, FALSE, $13)`,
+           VALUES ($1, $2, $3, $4, $5, 'inbound', $6, $7, $8, $9, $10, $11, $12, FALSE, $13)
+           RETURNING id`,
           [
             matchedEmail.id,
             matchedEmail.lead_id,
@@ -294,11 +449,14 @@ async function checkReplies(smtpAccount) {
             bodyText,
             messageId,
             inReplyTo,
-            smtpAccount.organization_id || null,
+            orgId,
           ]
         );
 
+        const replyMessageId = insertResult.rows[0]?.id || null;
+
         // --- Classify reply sentiment with AI (uses org's own API key) ---
+        let classifiedSentiment = null;
         try {
           const { generateCompletion } = require('./aiProvider');
           const sentimentResult = await generateCompletion({
@@ -306,20 +464,56 @@ async function checkReplies(smtpAccount) {
             systemPrompt: 'Classify this email reply into exactly one category. Return ONLY the category name, nothing else. Categories: interested, meeting_booked, not_interested, out_of_office, unsubscribe_request, wrong_person, auto_reply',
             userPrompt: `Subject: ${subject}\n\nBody:\n${bodyText || '(no text content)'}`,
             maxTokens: 20,
-            organizationId: smtpAccount.organization_id || null,
+            organizationId: orgId,
           });
           const sentiment = (sentimentResult.text || '').trim().toLowerCase().replace(/[^a-z_]/g, '');
           const validSentiments = ['interested', 'meeting_booked', 'not_interested', 'out_of_office', 'unsubscribe_request', 'wrong_person', 'auto_reply'];
           if (validSentiments.includes(sentiment)) {
-            await db.query(
-              'UPDATE reply_messages SET sentiment = $1 WHERE email_id = $2 AND lead_id = $3 AND direction = \'inbound\' ORDER BY created_at DESC LIMIT 1',
-              [sentiment, matchedEmail.id, matchedEmail.lead_id]
-            );
+            classifiedSentiment = sentiment;
             logger.debug('Reply sentiment classified', { sentiment, leadId: matchedEmail.lead_id });
           }
         } catch (sentimentErr) {
           logger.warn('Failed to classify reply sentiment', { error: sentimentErr.message, leadId: matchedEmail.lead_id });
           // Non-critical - continue processing
+        }
+
+        // --- Generate AI suggested reply ---
+        let suggestedResponse = null;
+        if (classifiedSentiment) {
+          try {
+            // Fetch brand for context (calendly link, system prompt)
+            let brand = null;
+            if (matchedEmail.brand_id) {
+              const brandRes = await db.query(
+                `SELECT calendly_link, ai_system_prompt FROM brands WHERE id = $1 LIMIT 1`,
+                [matchedEmail.brand_id]
+              );
+              brand = brandRes.rows[0] || null;
+            }
+            suggestedResponse = await generateSuggestedReply(subject, bodyText || '', classifiedSentiment, brand, orgId);
+          } catch (suggErr) {
+            logger.warn('Failed to generate suggested reply', { error: suggErr.message, leadId: matchedEmail.lead_id });
+          }
+        }
+
+        // --- Persist sentiment and suggested_response ---
+        if (replyMessageId && (classifiedSentiment || suggestedResponse)) {
+          const setParts = [];
+          const updateParams = [];
+          let pIdx = 1;
+          if (classifiedSentiment) {
+            setParts.push(`sentiment = $${pIdx++}`);
+            updateParams.push(classifiedSentiment);
+          }
+          if (suggestedResponse) {
+            setParts.push(`suggested_response = $${pIdx++}`);
+            updateParams.push(suggestedResponse);
+          }
+          updateParams.push(replyMessageId);
+          await db.query(
+            `UPDATE reply_messages SET ${setParts.join(', ')} WHERE id = $${pIdx}`,
+            updateParams
+          );
         }
 
         // --- Update emails_sent status to 'replied' ---

@@ -129,6 +129,71 @@ router.get('/', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /spam-check - Analyse email content for spam signals (must be before /:id)
+// ---------------------------------------------------------------------------
+router.post('/spam-check', async (req, res) => {
+  try {
+    const { subject = '', bodyText = '', bodyHtml = '' } = req.body;
+
+    const text = bodyText || bodyHtml.replace(/<[^>]+>/g, ' ');
+    const fullContent = `${subject}\n\n${text}`;
+
+    const flags = [];
+    let score = 0;
+
+    // Rule set (SpamAssassin-inspired)
+    const rules = [
+      { id: 'SUBJECT_ALL_CAPS', test: () => subject === subject.toUpperCase() && subject.length > 5 && /[A-Z]/.test(subject), score: 1.5, desc: 'Subject line is ALL CAPS' },
+      { id: 'SUBJECT_EXCLAMATION', test: () => (subject.match(/!/g) || []).length > 1, score: 0.5, desc: 'Multiple exclamation marks in subject' },
+      { id: 'SPAM_WORDS_SUBJECT', test: () => /\b(free|guaranteed|winner|cash|prize|urgent|act now|limited time|click here|buy now|order now|earn money|make money|no cost|100%|risk.?free)\b/i.test(subject), score: 2.0, desc: 'Spam trigger words in subject line' },
+      { id: 'SPAM_WORDS_BODY', test: () => /\b(free|guaranteed|winner|cash|prize|earn \$|make \$|no cost|risk.?free|click here|buy now|order now|unsubscribe now|lose weight|earn extra|work from home|extra income|double your)\b/i.test(text), score: 1.0, desc: 'Spam trigger words in email body' },
+      { id: 'EXCESSIVE_LINKS', test: () => (bodyHtml.match(/<a /gi) || []).length > 5, score: 1.0, desc: 'Too many links (more than 5)' },
+      { id: 'NO_UNSUBSCRIBE', test: () => !/unsubscribe/i.test(fullContent), score: 1.5, desc: 'Missing unsubscribe link' },
+      { id: 'DOLLAR_SIGN', test: () => (text.match(/\$/g) || []).length > 2, score: 0.5, desc: 'Multiple dollar signs' },
+      { id: 'ALL_CAPS_WORDS', test: () => (text.match(/\b[A-Z]{4,}\b/g) || []).length > 3, score: 0.5, desc: 'Multiple ALL-CAPS words in body' },
+      { id: 'EXCESSIVE_EXCLAMATION', test: () => (fullContent.match(/!/g) || []).length > 3, score: 0.5, desc: 'Too many exclamation marks' },
+      { id: 'HTML_IMAGE_ONLY', test: () => bodyHtml.length > 100 && text.replace(/\s/g, '').length < 50, score: 2.0, desc: 'Email is mostly images with little text' },
+      { id: 'SHORT_BODY', test: () => text.trim().split(/\s+/).length < 20, score: 0.3, desc: 'Very short email body' },
+      { id: 'PERCENTAGE_NUMBERS', test: () => /\b\d{2,3}%\b/.test(text) && /\b(off|discount|save|return|profit)\b/i.test(text), score: 0.5, desc: 'Percentage-based offers detected' },
+    ];
+
+    for (const rule of rules) {
+      try {
+        if (rule.test()) {
+          flags.push({ id: rule.id, description: rule.desc, score: rule.score });
+          score += rule.score;
+        }
+      } catch (e) { /* skip broken rule */ }
+    }
+
+    // Cap score at 10
+    score = Math.min(Math.round(score * 10) / 10, 10);
+
+    const level = score <= 2 ? 'good' : score <= 4 ? 'warning' : 'danger';
+
+    res.json({ success: true, score, level, flags });
+  } catch (err) {
+    console.error('Spam check error:', err);
+    res.status(500).json({ success: false, message: 'Spam check failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /preview - Return CSS-inlined HTML for email client preview (before /:id)
+// ---------------------------------------------------------------------------
+router.post('/preview', async (req, res) => {
+  try {
+    const { subject = '', bodyHtml = '', bodyText = '' } = req.body;
+    // Simple CSS inlining: wrap content in a standard email-safe container
+    const html = bodyHtml || `<p style="font-family:sans-serif;font-size:14px;line-height:1.6;">${bodyText.replace(/\n/g, '<br>')}</p>`;
+    const inlined = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><tr><td style="padding:32px 40px;font-size:14px;line-height:1.7;color:#333333;">${html}</td></tr></table></td></tr></table></body></html>`;
+    res.json({ success: true, html: inlined, subject });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Preview generation failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /:id - Get single template
 // ---------------------------------------------------------------------------
 router.get('/:id', async (req, res) => {

@@ -47,6 +47,14 @@ const COLUMN_MAP = {
   lead_type: ['lead_type', 'type', 'Lead Type', 'Type'],
   industry: ['industry', 'Industry'],
   project_details: ['project_details', 'notes', 'Notes', 'Project Details', 'details'],
+  // Enrichment fields
+  job_title: ['job_title', 'Job Title', 'Title', 'title'],
+  company_name: ['company_name', 'Company', 'Company Name', 'company'],
+  company_size: ['company_size', 'Employees', 'Number of Employees', 'company_employees'],
+  linkedin_url: ['linkedin_url', 'LinkedIn URL', 'Person Linkedin Url', 'linkedin'],
+  tech_stack: ['tech_stack', 'Tech Stack', 'Technologies', 'technologies'],
+  recent_news: ['recent_news', 'Recent News', 'News', 'Context', 'context'],
+  enrichment_source: ['enrichment_source', 'Enrichment Source', 'source'],
 };
 
 /**
@@ -172,7 +180,9 @@ router.get('/', authenticate, tenantScope, async (req, res) => {
     const dataResult = await db.query(
       `SELECT l.id, l.full_name, l.email, l.phone, l.lead_type, l.industry,
               l.project_details, l.source_type, l.source_detail, l.status,
-              l.unsubscribed, l.brand_id, l.created_at, l.updated_at
+              l.unsubscribed, l.brand_id, l.created_at, l.updated_at,
+              l.job_title, l.company_name, l.company_size, l.linkedin_url,
+              l.tech_stack, l.recent_news, l.enrichment_source
        FROM leads l
        ${whereClause}
        ORDER BY l.${safeSortBy} ${safeSortOrder}
@@ -278,7 +288,9 @@ router.get('/:id', authenticate, tenantScope, async (req, res) => {
     const leadResult = await db.query(
       `SELECT id, full_name, email, phone, lead_type, industry, project_details,
               source_type, source_detail, status, unsubscribed, brand_id,
-              created_at, updated_at
+              created_at, updated_at,
+              job_title, company_name, company_size, linkedin_url,
+              tech_stack, recent_news, enrichment_source
        FROM leads
        WHERE id = $1 AND organization_id = $2`,
       [id, req.organizationId]
@@ -333,7 +345,10 @@ router.get('/:id', authenticate, tenantScope, async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post('/', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
   try {
-    const { full_name, email, phone, lead_type, industry, project_details, brand_id } = req.body;
+    const {
+      full_name, email, phone, lead_type, industry, project_details, brand_id,
+      job_title, company_name, company_size, linkedin_url, tech_stack, recent_news, enrichment_source,
+    } = req.body;
 
     // Validation
     if (!full_name || !full_name.trim()) {

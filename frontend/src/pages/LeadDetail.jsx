@@ -252,6 +252,59 @@ export default function LeadDetail() {
         )}
       </div>
 
+      {/* ── Enrichment Data ───────────────────────────────────────── */}
+      {(lead.job_title || lead.company_name || lead.company_size || lead.linkedin_url || lead.recent_news || (lead.tech_stack && lead.tech_stack.length > 0)) && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Building2 className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-bold text-gray-800">Enrichment Data</h2>
+            {lead.enrichment_source && (
+              <span className="badge badge-blue capitalize">{lead.enrichment_source}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {lead.company_name && (
+              <InfoField icon={Building2} label="Company">
+                {lead.company_name}
+              </InfoField>
+            )}
+            {lead.job_title && (
+              <InfoField icon={User} label="Job Title">
+                {lead.job_title}
+              </InfoField>
+            )}
+            {lead.company_size && (
+              <InfoField icon={User} label="Company Size">
+                {lead.company_size} employees
+              </InfoField>
+            )}
+            {lead.linkedin_url && (
+              <InfoField icon={Globe} label="LinkedIn">
+                <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline truncate block">
+                  View Profile
+                </a>
+              </InfoField>
+            )}
+          </div>
+          {lead.tech_stack && lead.tech_stack.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tech Stack</p>
+              <div className="flex flex-wrap gap-1.5">
+                {lead.tech_stack.map((tech, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-md">{tech}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {lead.recent_news && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Recent News</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{lead.recent_news}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Email History ──────────────────────────────────────────── */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">

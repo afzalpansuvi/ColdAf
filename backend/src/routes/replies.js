@@ -76,7 +76,8 @@ router.get('/', async (req, res) => {
       `SELECT rm.id, rm.email_id, rm.lead_id, rm.campaign_id, rm.brand_id,
               rm.smtp_account_id, rm.direction, rm.from_email, rm.to_email,
               rm.subject, rm.body_html, rm.body_text, rm.message_id,
-              rm.in_reply_to, rm.sent_by_user_id, rm.is_read, rm.created_at,
+              rm.in_reply_to, rm.sent_by_user_id, rm.is_read, rm.sentiment,
+              rm.suggested_response, rm.created_at,
               l.full_name AS lead_name, l.email AS lead_email,
               b.name AS brand_name
        FROM reply_messages rm
@@ -105,6 +106,8 @@ router.get('/', async (req, res) => {
       inReplyTo: r.in_reply_to,
       sentByUserId: r.sent_by_user_id,
       isRead: r.is_read,
+      sentiment: r.sentiment,
+      suggestedResponse: r.suggested_response,
       createdAt: r.created_at,
       leadName: r.lead_name,
       leadEmail: r.lead_email,
@@ -197,7 +200,8 @@ router.get('/thread/:leadId', async (req, res) => {
       `SELECT rm.id, rm.email_id, rm.campaign_id, rm.brand_id,
               rm.smtp_account_id, rm.direction, rm.from_email, rm.to_email,
               rm.subject, rm.body_html, rm.body_text, rm.message_id,
-              rm.in_reply_to, rm.sent_by_user_id, rm.is_read, rm.created_at,
+              rm.in_reply_to, rm.sent_by_user_id, rm.is_read,
+              rm.sentiment, rm.suggested_response, rm.created_at,
               b.name AS brand_name
        FROM reply_messages rm
        LEFT JOIN brands b ON b.id = rm.brand_id
@@ -252,6 +256,8 @@ router.get('/thread/:leadId', async (req, res) => {
         inReplyTo: reply.in_reply_to,
         sentByUserId: reply.sent_by_user_id,
         isRead: reply.is_read,
+        sentiment: reply.sentiment,
+        suggestedResponse: reply.suggested_response,
         date: reply.created_at,
       });
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
-import { Loader2, Check, X, DollarSign, HeartHandshake } from 'lucide-react';
+import { Loader2, Check, X, DollarSign, HeartHandshake, Download } from 'lucide-react';
 
 const STATUS_COLORS = {
   pending: 'badge-yellow',
@@ -42,11 +42,34 @@ export default function Affiliates() {
   const pending = affiliates.filter((a) => a.status === 'pending');
   const active = affiliates.filter((a) => a.status !== 'pending');
 
+  const exportCsv = async () => {
+    try {
+      const res = await api.get('/admin/affiliates/export-csv', { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `affiliates-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Affiliates</h1>
-        <p className="text-sm text-gray-500 mt-1">{affiliates.length} affiliate{affiliates.length !== 1 ? 's' : ''}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Affiliates</h1>
+          <p className="text-sm text-gray-500 mt-1">{affiliates.length} affiliate{affiliates.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button
+          onClick={exportCsv}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Export CSV
+        </button>
       </div>
 
       {loading ? (

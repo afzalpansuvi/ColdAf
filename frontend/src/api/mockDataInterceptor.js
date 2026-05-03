@@ -362,8 +362,16 @@ export const getMockData = (method, path) => {
       return { data: { count: 3 } };
     }
 
-    if (path.includes('/notifications')) {
-      return { data: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 1 } };
+    if (path.startsWith('/notifications')) {
+      return {
+        data: {
+          notifications: [
+            { id: '1', type: 'reply_received', title: 'New reply from John Smith', message: 'Interested in learning more about your offering.', is_read: false, created_at: new Date(Date.now() - 5 * 60000).toISOString() },
+            { id: '2', type: 'gmail_expired', title: 'Gmail account needs reconnection', message: 'sales@yourcompany.com OAuth token has expired. Reconnect to resume sending.', is_read: false, created_at: new Date(Date.now() - 2 * 3600000).toISOString() },
+            { id: '3', type: 'campaign_paused', title: 'Campaign auto-paused', message: 'Campaign "Q1 Outreach" was paused due to high bounce rate (8.3%).', is_read: true, created_at: new Date(Date.now() - 24 * 3600000).toISOString() },
+          ]
+        }
+      };
     }
 
     if (path.includes('/phone-calls/knowledge')) {
@@ -894,6 +902,20 @@ export const getMockData = (method, path) => {
         },
       };
     }
+  }
+
+  if (method === 'PUT' && path.match(/^\/notifications\/[^/]+$/)) {
+    return { data: { success: true } };
+  }
+
+  // Template spam-check
+  if (method === 'POST' && path.includes('/templates/spam-check')) {
+    return { data: { success: true, score: 1.5, level: 'good', flags: [{ id: 'NO_UNSUBSCRIBE', description: 'Missing unsubscribe link', score: 1.5 }] } };
+  }
+
+  // Template preview
+  if (method === 'POST' && path.includes('/templates/preview')) {
+    return { data: { success: true, html: '<html><body><p>Email preview (demo mode)</p></body></html>', subject: 'Preview' } };
   }
 
   // Fallback for POST/PUT/DELETE

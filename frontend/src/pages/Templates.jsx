@@ -117,6 +117,10 @@ export default function Templates() {
   // Spintax preview
   const [spintaxVariations, setSpintaxVariations] = useState([]);
 
+  // Spam score
+  const [spamScore, setSpamScore] = useState(null);   // { score, level, flags }
+  const [spamChecking, setSpamChecking] = useState(false);
+
   // ── Fetch brands ──────────────────────────────────────────────────
   useEffect(() => {
     api.get('/brands')
@@ -207,6 +211,25 @@ export default function Templates() {
     setShowCreateModal(false);
     setEditingTemplate(null);
     setFormError(null);
+    setSpamScore(null);
+  };
+
+  // ── Spam check ────────────────────────────────────────────────────
+  const runSpamCheck = async () => {
+    setSpamChecking(true);
+    setSpamScore(null);
+    try {
+      const res = await api.post('/templates/spam-check', {
+        subject: form.subject,
+        bodyHtml: form.body_html,
+        bodyText: form.body_text,
+      });
+      setSpamScore(res.data);
+    } catch (err) {
+      console.error('Spam check failed', err);
+    } finally {
+      setSpamChecking(false);
+    }
   };
 
   const closeViewModal = () => {
@@ -892,6 +915,56 @@ export default function Templates() {
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Comma separated
                 </p>
+              </div>
+
+              {/* Spam Score Checker */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Spam Score</span>
+                  <button
+                    type="button"
+                    onClick={runSpamCheck}
+                    disabled={spamChecking}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {spamChecking ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+                    {spamChecking ? 'Checking...' : 'Check Score'}
+                  </button>
+                </div>
+                {spamScore ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-2xl font-bold tabular-nums ${
+                        spamScore.level === 'good' ? 'text-green-600' :
+                        spamScore.level === 'warning' ? 'text-yellow-500' : 'text-red-600'
+                      }`}>{spamScore.score}</span>
+                      <span className="text-xs text-gray-400">/ 10</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        spamScore.level === 'good' ? 'bg-green-100 text-green-700' :
+                        spamScore.level === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {spamScore.level === 'good' ? '✓ Good' : spamScore.level === 'warning' ? '⚠ Warning' : '✗ Danger'}
+                      </span>
+                    </div>
+                    {spamScore.flags && spamScore.flags.length > 0 && (
+                      <ul className="space-y-1">
+                        {spamScore.flags.map((f) => (
+                          <li key={f.id} className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+                            <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
+                            {f.description} <span className="text-gray-400">(+{f.score})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {spamScore.flags && spamScore.flags.length === 0 && (
+                      <p className="text-xs text-green-600 dark:text-green-400">No issues detected.</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Click "Check Score" to analyze subject and body for spam triggers.
+                  </p>
+                )}
               </div>
 
               {/* Spintax Preview Section */}

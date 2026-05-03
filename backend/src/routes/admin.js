@@ -415,6 +415,49 @@ router.post('/affiliates/:id/pay', async (req, res) => {
   }
 });
 
+// GET /admin/affiliates/export-csv
+router.get('/affiliates/export-csv', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT
+        a.id,
+        u.email AS affiliate_email,
+        u.full_name AS affiliate_name,
+        a.code AS affiliate_code,
+        a.commission_pct,
+        a.paypal_email,
+        a.total_earned,
+        a.total_paid,
+        (a.total_earned - a.total_paid) AS balance_due,
+        a.status,
+        COUNT(ar.id) AS total_referrals,
+        COALESCE(SUM(ar.commission_due), 0) AS pending_commission
+      FROM affiliates a
+      LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN affiliate_referrals ar ON ar.affiliate_id = a.id AND ar.commission_paid = false
+      GROUP BY a.id, u.email, u.full_name, a.code, a.commission_pct, a.paypal_email, a.total_earned, a.total_paid, a.status
+      ORDER BY balance_due DESC
+    `);
+
+    const headers = ['ID', 'Name', 'Email', 'PayPal Email', 'Affiliate Code', 'Commission %', 'Total Earned', 'Total Paid', 'Balance Due', 'Total Referrals', 'Pending Commission', 'Status'];
+    const csvRows = rows.map(r => [
+      r.id, r.affiliate_name || '', r.affiliate_email || '', r.paypal_email || '',
+      r.affiliate_code, r.commission_pct, r.total_earned, r.total_paid, r.balance_due,
+      r.total_referrals, r.pending_commission, r.status
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+
+    const csv = [headers.join(','), ...csvRows].join('\n');
+    const filename = `affiliates-payout-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Affiliate CSV export error:', err);
+    res.status(500).json({ success: false, message: 'Failed to export affiliate data' });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 //  9. USERS (all users across orgs)
 // ═══════════════════════════════════════════════════════════════

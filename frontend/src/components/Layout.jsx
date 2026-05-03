@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
 import DarkModeToggle from './DarkModeToggle';
+import NotificationBell from './NotificationBell';
 import {
   LayoutDashboard,
   Send,
@@ -17,7 +18,6 @@ import {
   Phone,
   ScrollText,
   FileText,
-  Bell,
   LogOut,
   ChevronDown,
   ChevronLeft,
@@ -194,51 +194,6 @@ export default function Layout() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Notifications
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const notifRef = useRef(null);
-
-  const fetchUnread = useCallback(async () => {
-    try {
-      const { data } = await api.get('/notifications/unread-count');
-      setUnreadCount(data.data?.count ?? data.data?.unreadCount ?? 0);
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    fetchUnread();
-    const iv = setInterval(fetchUnread, 30000);
-    return () => clearInterval(iv);
-  }, [fetchUnread]);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifications(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const openNotifications = async () => {
-    setShowNotifications(!showNotifications);
-    if (!showNotifications) {
-      try {
-        const { data } = await api.get('/notifications?limit=10');
-        setNotifications(data.data?.notifications ?? []);
-      } catch { /* ignore */ }
-    }
-  };
-
-  const markNotifRead = async (id) => {
-    try {
-      await api.put(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch { /* ignore */ }
-  };
 
   // Keyboard shortcut placeholder — opens search focus (Cmd+K full palette in Step 5)
   const searchRef = useRef(null);
@@ -436,54 +391,7 @@ export default function Layout() {
               <DarkModeToggle />
 
               {/* Notifications */}
-              <div className="relative" ref={notifRef}>
-                <button
-                  onClick={openNotifications}
-                  className="relative p-2 text-gray-500 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
-                >
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-xl py-1 z-50 max-h-96 overflow-y-auto" style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.35)',
-                    boxShadow: '0 12px 50px rgba(0, 0, 0, 0.10)',
-                  }}>
-                    <div className="px-4 py-2.5 border-b border-gray-100/50 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-800">Notifications</span>
-                      {unreadCount > 0 && (
-                        <span className="text-[10px] font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
-                          {unreadCount} unread
-                        </span>
-                      )}
-                    </div>
-                    {notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-sm text-gray-400">
-                        You're all caught up ✨
-                      </div>
-                    ) : notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => !n.is_read && markNotifRead(n.id)}
-                        className={`w-full text-left px-4 py-2.5 border-b border-gray-50/50 hover:bg-brand-50/30 transition-colors ${!n.is_read ? 'bg-brand-50/20' : ''}`}
-                      >
-                        <p className="text-sm font-medium text-gray-800">{n.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <NotificationBell />
 
               {/* Avatar dropdown — Jotform pattern: ALL settings live here */}
               <div className="relative" ref={userMenuRef}>
