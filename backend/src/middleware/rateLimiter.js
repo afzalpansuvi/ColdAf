@@ -24,7 +24,7 @@ const loginLimiter = rateLimit({
  */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 500,
+  max: 2000, // raised from 500: dashboard makes ~15 parallel calls per load
   standardHeaders: true,
   legacyHeaders: false,
   message: {
