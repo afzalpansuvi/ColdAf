@@ -22,25 +22,37 @@ router.get('/', async (req, res) => {
     if (limit > 200) limit = 200;
 
     const userId = req.user.id;
+    const typeFilter = req.query.type || null;
+    const unreadOnly = req.query.unread === 'true';
+
+    const params = [userId];
+    let whereExtra = '';
+    if (typeFilter) {
+      params.push(typeFilter);
+      whereExtra += ` AND type = $${params.length}`;
+    }
+    if (unreadOnly) {
+      whereExtra += ' AND is_read = FALSE';
+    }
 
     // Count query
     const countResult = await db.query(
-      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1`,
-      [userId]
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1${whereExtra}`,
+      params
     );
     const total = countResult.rows[0].total;
     const totalPages = Math.ceil(total / limit) || 1;
 
     // Data query
     const offset = (page - 1) * limit;
+    const dataParams = [...params, limit, offset];
     const dataResult = await db.query(
-      `SELECT id, user_id, type, title, message, metadata, is_read,
-              created_at, updated_at
+      `SELECT id, user_id, type, title, message, metadata, is_read, created_at
        FROM notifications
-       WHERE user_id = $1
+       WHERE user_id = $1${whereExtra}
        ORDER BY created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      dataParams
     );
 
     return res.json({
@@ -55,7 +67,6 @@ router.get('/', async (req, res) => {
           metadata: r.metadata,
           isRead: r.is_read,
           createdAt: r.created_at,
-          updatedAt: r.updated_at,
         })),
         total,
         page,
@@ -110,7 +121,7 @@ router.put('/mark-all-read', async (req, res) => {
 
     const result = await db.query(
       `UPDATE notifications
-       SET is_read = TRUE, updated_at = NOW()
+       SET is_read = TRUE
        WHERE user_id = $1 AND is_read = FALSE`,
       [userId]
     );
@@ -144,7 +155,7 @@ router.put('/:id/read', async (req, res) => {
 
     const result = await db.query(
       `UPDATE notifications
-       SET is_read = TRUE, updated_at = NOW()
+       SET is_read = TRUE
        WHERE id = $1 AND user_id = $2
        RETURNING id, is_read`,
       [id, userId]

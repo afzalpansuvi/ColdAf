@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import api from '../api/client';
 import {
   Loader2,
@@ -16,6 +17,7 @@ import {
   Settings2,
   Flame,
   BarChart3,
+  Palette,
 } from 'lucide-react';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -140,6 +142,7 @@ const DEFAULT_SETTINGS = {
 // ═════════════════════════════════════════════════════════════════════
 export default function Settings() {
   const { isAdmin } = useAuth();
+  const { setBranding } = useBranding();
 
   // Data state
   const [settings, setSettings] = useState({ ...DEFAULT_SETTINGS });
@@ -147,6 +150,11 @@ export default function Settings() {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // White-label branding state
+  const [brandingForm, setBrandingForm] = useState({ logoUrl: '', primaryColor: '', companyName: '' });
+  const [brandingLoading, setBrandingLoading] = useState(false);
+  const [brandingSaving, setBrandingSaving] = useState(false);
 
   // ── Fetch settings ─────────────────────────────────────────────────
   const fetchSettings = useCallback(async () => {
@@ -175,6 +183,21 @@ export default function Settings() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    setBrandingLoading(true);
+    api.get('/organizations/branding')
+      .then(res => {
+        const b = res.data?.branding || {};
+        setBrandingForm({
+          logoUrl: b.logoUrl || '',
+          primaryColor: b.primaryColor || '',
+          companyName: b.companyName || '',
+        });
+      })
+      .catch(() => {})
+      .finally(() => setBrandingLoading(false));
+  }, []);
 
   // ── Auto-dismiss toast ──────────────────────────────────────────────
   useEffect(() => {
@@ -217,6 +240,36 @@ export default function Settings() {
       setToast({ type: 'error', message: err.message || 'Failed to save settings.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Save branding ───────────────────────────────────────────────────
+  const handleSaveBranding = async () => {
+    setBrandingSaving(true);
+    setToast(null);
+    try {
+      await api.put('/organizations/branding', {
+        logoUrl: brandingForm.logoUrl || null,
+        primaryColor: brandingForm.primaryColor || null,
+        companyName: brandingForm.companyName || null,
+      });
+      // Update context so Layout reflects changes immediately
+      setBranding({
+        logoUrl: brandingForm.logoUrl || null,
+        primaryColor: brandingForm.primaryColor || null,
+        companyName: brandingForm.companyName || null,
+      });
+      if (brandingForm.primaryColor) {
+        document.documentElement.style.setProperty('--brand-color', brandingForm.primaryColor);
+      }
+      if (brandingForm.companyName) {
+        document.title = brandingForm.companyName;
+      }
+      setToast({ type: 'success', message: 'White-label branding saved.' });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to save branding.' });
+    } finally {
+      setBrandingSaving(false);
     }
   };
 
@@ -760,6 +813,102 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* ── Section 6: White Label (admin only) ─────────────────────── */}
+      {isAdmin && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-5">
+            <Palette className="w-5 h-5 text-brand-600" />
+            <h2 className="text-base font-semibold text-gray-900">White Label</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-5">
+            Customise the platform with your agency branding. Changes apply immediately for all users in your organisation.
+          </p>
+
+          {brandingLoading ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading branding settings...
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  value={brandingForm.companyName}
+                  onChange={e => setBrandingForm(p => ({ ...p, companyName: e.target.value }))}
+                  placeholder="Your Agency Name"
+                  className="input-field"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Replaces "AtAflex" in the sidebar and browser tab title.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Logo URL
+                </label>
+                <input
+                  type="url"
+                  value={brandingForm.logoUrl}
+                  onChange={e => setBrandingForm(p => ({ ...p, logoUrl: e.target.value }))}
+                  placeholder="https://cdn.youragency.com/logo.png"
+                  className="input-field"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Square image recommended (min 64×64 px). Replaces the sidebar logo.
+                </p>
+                {brandingForm.logoUrl && (
+                  <img
+                    src={brandingForm.logoUrl}
+                    alt="Logo preview"
+                    className="mt-2 w-12 h-12 object-contain rounded-lg border border-gray-200 bg-gray-50 p-1"
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Primary Colour
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={brandingForm.primaryColor || '#7c3aed'}
+                    onChange={e => setBrandingForm(p => ({ ...p, primaryColor: e.target.value }))}
+                    className="w-10 h-10 rounded cursor-pointer border border-gray-300 p-0.5"
+                  />
+                  <input
+                    type="text"
+                    value={brandingForm.primaryColor}
+                    onChange={e => setBrandingForm(p => ({ ...p, primaryColor: e.target.value }))}
+                    placeholder="#7c3aed"
+                    className="input-field w-40"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Sets the <code>--brand-color</code> CSS variable used across the UI.
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveBranding}
+                  disabled={brandingSaving}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {brandingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {brandingSaving ? 'Saving...' : 'Save Branding'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Save Button ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-end gap-3 pb-8">

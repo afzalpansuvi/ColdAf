@@ -456,6 +456,77 @@ router.put('/members/:id/reactivate', requireOrg, requirePermission('*'), async 
 });
 
 // ---------------------------------------------------------------------------
+// GET /branding — Get white-label branding settings for the current org
+// ---------------------------------------------------------------------------
+router.get('/branding', requireOrg, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT key, value FROM organization_settings
+       WHERE organization_id = $1
+         AND key IN ('white_label_logo_url', 'white_label_primary_color', 'white_label_company_name')`,
+      [req.organizationId]
+    );
+
+    const map = {};
+    for (const row of result.rows) {
+      map[row.key] = row.value;
+    }
+
+    return res.json({
+      success: true,
+      branding: {
+        logoUrl: map['white_label_logo_url'] || null,
+        primaryColor: map['white_label_primary_color'] || null,
+        companyName: map['white_label_company_name'] || null,
+      },
+    });
+  } catch (err) {
+    logger.error('Get branding error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Internal error.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /branding — Save white-label branding settings (admin only)
+// ---------------------------------------------------------------------------
+router.put('/branding', requireOrg, requirePermission('*'), async (req, res) => {
+  try {
+    const { logoUrl, primaryColor, companyName } = req.body;
+
+    const entries = [
+      { key: 'white_label_logo_url', value: logoUrl ?? null },
+      { key: 'white_label_primary_color', value: primaryColor ?? null },
+      { key: 'white_label_company_name', value: companyName ?? null },
+    ];
+
+    for (const entry of entries) {
+      await db.query(
+        `INSERT INTO organization_settings (organization_id, key, value, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (organization_id, key)
+         DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [req.organizationId, entry.key, entry.value]
+      );
+    }
+
+    await audit.logAction({
+      actorId: req.user.id,
+      actorName: req.user.email,
+      actionType: 'organization.update_branding',
+      targetType: 'organization',
+      targetId: req.organizationId,
+      description: 'Updated white-label branding settings',
+      organizationId: req.organizationId,
+    });
+
+    return res.json({ success: true, message: 'Branding settings saved.' });
+  } catch (err) {
+    logger.error('Update branding error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Internal error.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /roles — List available roles for invitations
 // ---------------------------------------------------------------------------
 router.get('/roles', async (req, res) => {

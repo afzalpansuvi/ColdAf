@@ -586,6 +586,17 @@ export const getMockData = (method, path) => {
       };
     }
 
+    if (path.includes('/organizations/branding')) {
+      return {
+        success: true,
+        branding: {
+          logoUrl: null,
+          primaryColor: null,
+          companyName: null,
+        },
+      };
+    }
+
     if (path.includes('/organizations/members')) {
       return {
         data: [

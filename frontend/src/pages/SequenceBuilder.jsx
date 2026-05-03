@@ -12,6 +12,8 @@ import {
   GitBranch,
   Clock,
   Mail,
+  ExternalLink,
+  ClipboardList,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +35,13 @@ const STEP_TYPE_OPTIONS = [
   { value: 'email', label: 'Send Email' },
   { value: 'condition', label: 'Condition Branch' },
   { value: 'wait', label: 'Wait / Delay' },
+  { value: 'linkedin_visit', label: 'LinkedIn: Visit Profile' },
+  { value: 'linkedin_connect', label: 'LinkedIn: Send Connection Request' },
+  { value: 'linkedin_dm', label: 'LinkedIn: Send Direct Message' },
+  { value: 'manual_task', label: 'Manual Task' },
 ];
+
+const LINKEDIN_TASK_TYPES = new Set(['linkedin_visit', 'linkedin_connect', 'linkedin_dm', 'manual_task']);
 
 const DEFAULT_STEP = {
   stepOrder: 0,
@@ -54,6 +62,10 @@ const DEFAULT_STEP = {
 function StepIcon({ stepType }) {
   if (stepType === 'condition') return <GitBranch className="w-4 h-4 text-purple-600" />;
   if (stepType === 'wait') return <Clock className="w-4 h-4 text-amber-500" />;
+  if (stepType === 'manual_task') return <ClipboardList className="w-4 h-4 text-teal-600" />;
+  if (stepType === 'linkedin_visit' || stepType === 'linkedin_connect' || stepType === 'linkedin_dm') {
+    return <ExternalLink className="w-4 h-4 text-blue-600" />;
+  }
   return <Mail className="w-4 h-4 text-indigo-600" />;
 }
 
@@ -149,18 +161,24 @@ export default function SequenceBuilder() {
     setSuccessMsg(null);
 
     try {
-      const payload = steps.map((s, i) => ({
-        stepOrder: i,
-        stepType: s.stepType,
-        conditionType: s.conditionType,
-        conditionValue: s.conditionValue || null,
-        delayDays: parseInt(s.delayDays, 10) || 0,
-        delayHours: parseInt(s.delayHours, 10) || 0,
-        subjectOverride: s.subjectOverride || null,
-        branchLabel: s.branchLabel || null,
-        templateId: s.templateId || null,
-        isActive: s.isActive !== false,
-      }));
+      const payload = steps.map((s, i) => {
+        const isLinkedIn = LINKEDIN_TASK_TYPES.has(s.stepType);
+        return {
+          stepOrder: i,
+          stepType: s.stepType,
+          conditionType: s.conditionType,
+          conditionValue: s.conditionValue || null,
+          delayDays: parseInt(s.delayDays, 10) || 0,
+          delayHours: parseInt(s.delayHours, 10) || 0,
+          // For LinkedIn/manual steps the instructions textarea writes into subjectOverride;
+          // map it to aiPromptOverride so it reaches step.ai_prompt_override in the processor.
+          subjectOverride: isLinkedIn ? null : (s.subjectOverride || null),
+          aiPromptOverride: isLinkedIn ? (s.subjectOverride || null) : null,
+          branchLabel: s.branchLabel || null,
+          templateId: s.templateId || null,
+          isActive: s.isActive !== false,
+        };
+      });
 
       await api.post(`/campaigns/${campaignId}/sequence`, { steps: payload });
       setSuccessMsg('Sequence saved successfully.');
@@ -329,6 +347,40 @@ export default function SequenceBuilder() {
               </div>
             )}
 
+            {/* LinkedIn / manual task fields */}
+            {LINKEDIN_TASK_TYPES.has(step.stepType) && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <ClipboardList className="inline w-3 h-3 mr-1 text-gray-400" />
+                    Task Instructions (optional — shown to the rep)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={step.subjectOverride}
+                    onChange={(e) => updateStep(index, 'subjectOverride', e.target.value)}
+                    placeholder={
+                      step.stepType === 'linkedin_visit'
+                        ? 'e.g. Check their recent posts before connecting.'
+                        : step.stepType === 'linkedin_connect'
+                        ? 'e.g. Mention the article they shared last week.'
+                        : step.stepType === 'linkedin_dm'
+                        ? 'e.g. Reference the email thread and ask for a quick call.'
+                        : 'Describe what the rep should do...'
+                    }
+                    className="input-field resize-none"
+                  />
+                </div>
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-700">
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>
+                    This creates a <strong>manual task notification</strong> for the rep to complete. No automation is
+                    performed — the rep opens LinkedIn and acts on it themselves.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Branch label (for condition branches) */}
             {step.stepType === 'condition' && (
               <div>
@@ -372,6 +424,7 @@ export default function SequenceBuilder() {
           <p className="font-semibold text-gray-700">How sequences work</p>
           <p>Steps execute in order. For each lead the scheduler evaluates the <strong>condition</strong> after the delay period has elapsed.</p>
           <p>Use <strong>Condition Branch</strong> steps with "yes"/"no" branch labels to send different emails based on lead behavior.</p>
+          <p>Use <strong>LinkedIn</strong> or <strong>Manual Task</strong> steps to create task notifications for reps — no automation, fully TOS-compliant.</p>
           <p>The sequence runs once you start the campaign. Each lead progresses independently through the steps.</p>
         </div>
 

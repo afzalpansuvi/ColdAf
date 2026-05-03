@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import api from '../api/client';
 import DarkModeToggle from './DarkModeToggle';
 import NotificationBell from './NotificationBell';
@@ -19,6 +20,7 @@ import {
   ScrollText,
   FileText,
   LogOut,
+  ClipboardList,
   ChevronDown,
   ChevronLeft,
   Menu,
@@ -43,6 +45,7 @@ import {
 const workNav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/replies', icon: MessageSquare, label: 'Inbox' },
+  { to: '/tasks', icon: ClipboardList, label: 'Tasks' },
   { to: '/campaigns', icon: Send, label: 'Campaigns' },
   { to: '/leads', icon: Users, label: 'Leads' },
   { to: '/phone-calls', icon: Phone, label: 'Phone Calls', permission: 'phone_calls.view' },
@@ -89,6 +92,7 @@ const pageTitles = {
   '/leads': 'Leads',
   '/analytics': 'Analytics',
   '/replies': 'Inbox',
+  '/tasks': 'Tasks',
   '/brands': 'Brands',
   '/smtp': 'Email Accounts',
   '/integrations': 'Integrations',
@@ -157,6 +161,7 @@ export default function Layout() {
     user, isAdmin, isOrgAdmin, isPlatformOwner, isPlatformLevel,
     hasPermission, logout, organization,
   } = useAuth();
+  const { branding } = useBranding();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -234,10 +239,13 @@ export default function Layout() {
           <div className={`flex items-center border-b border-white/10 h-14 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
             {!sidebarCollapsed && (
               <Link to="/" className="flex items-center gap-2.5 min-w-0">
-                <img src="/ataflex-logo.svg" alt="AtAflex" className="w-8 h-8 flex-shrink-0" />
+                {branding?.logoUrl
+                  ? <img src={branding.logoUrl} alt={branding.companyName || 'Logo'} className="w-8 h-8 flex-shrink-0 object-contain" />
+                  : <img src="/ataflex-logo.svg" alt="AtAflex" className="w-8 h-8 flex-shrink-0" />
+                }
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-bold text-white leading-tight truncate">
-                    {organization?.name || 'AtAflex'}
+                    {branding?.companyName || organization?.name || 'AtAflex'}
                   </span>
                   <span className="text-[10px] text-white/50 font-medium tracking-wider uppercase truncate">
                     {organization?.slug ? `${organization.slug}.coldaf` : 'Solutions'}
@@ -246,8 +254,11 @@ export default function Layout() {
               </Link>
             )}
             {sidebarCollapsed && (
-              <Link to="/" title={organization?.name || 'AtAflex'}>
-                <img src="/ataflex-logo.svg" alt="AtAflex" className="w-8 h-8 flex-shrink-0" />
+              <Link to="/" title={branding?.companyName || organization?.name || 'AtAflex'}>
+                {branding?.logoUrl
+                  ? <img src={branding.logoUrl} alt={branding.companyName || 'Logo'} className="w-8 h-8 flex-shrink-0 object-contain" />
+                  : <img src="/ataflex-logo.svg" alt="AtAflex" className="w-8 h-8 flex-shrink-0" />
+                }
               </Link>
             )}
             <div className="flex items-center gap-1">

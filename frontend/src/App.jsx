@@ -17,6 +17,7 @@ import Brands from './pages/Brands';
 import SMTP from './pages/SmtpAccounts';
 import Analytics from './pages/Analytics';
 import Replies from './pages/Replies';
+import Tasks from './pages/Tasks';
 import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
@@ -140,6 +141,7 @@ export default function App() {
         <Route path="leads/:id" element={<LeadDetail />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="replies" element={<Replies />} />
+        <Route path="tasks" element={<Tasks />} />
         <Route path="account" element={<Account />} />
 
         {/* Admin routes */}

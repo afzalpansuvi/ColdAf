@@ -17,6 +17,92 @@ const logger = require('../utils/logger');
 const { generateEmail } = require('../services/emailGenerator');
 
 // ---------------------------------------------------------------------------
+// Manual / LinkedIn task step types
+// ---------------------------------------------------------------------------
+const MANUAL_TASK_TYPES = new Set(['linkedin_visit', 'linkedin_connect', 'linkedin_dm', 'manual_task']);
+
+/**
+ * Builds a human-readable task description for a LinkedIn/manual step.
+ */
+function buildTaskMessage(stepType, lead) {
+  const name = lead.full_name || lead.email || 'the lead';
+  const linkedinPart = lead.linkedin_url ? ` — ${lead.linkedin_url}` : '';
+  switch (stepType) {
+    case 'linkedin_visit':
+      return `Visit ${name}'s LinkedIn profile${linkedinPart}`;
+    case 'linkedin_connect':
+      return `Send a LinkedIn connection request to ${name}${linkedinPart}`;
+    case 'linkedin_dm':
+      return `Send a LinkedIn direct message to ${name}${linkedinPart}`;
+    case 'manual_task':
+    default:
+      return `Complete manual task for ${name}${linkedinPart}`;
+  }
+}
+
+/**
+ * Resolves the user_id to notify.
+ * Prefers lead.assigned_to, then falls back to campaign.created_by.
+ */
+async function resolveNotifyUserId(lead, campaign) {
+  if (lead.assigned_to) return lead.assigned_to;
+  if (campaign.created_by) return campaign.created_by;
+  // Last resort: first admin/member of the org
+  const result = await db.query(
+    `SELECT user_id FROM organization_members
+     WHERE organization_id = $1
+     ORDER BY created_at ASC LIMIT 1`,
+    [campaign.organization_id]
+  );
+  return result.rows[0]?.user_id || null;
+}
+
+/**
+ * Creates a task_due notification for a manual / LinkedIn step.
+ */
+async function createTaskNotification(step, lead, campaign) {
+  const userId = await resolveNotifyUserId(lead, campaign);
+  if (!userId) {
+    logger.warn('Cannot create task notification: no user to notify', {
+      campaignId: campaign.id,
+      leadId: lead.id,
+      stepId: step.id,
+    });
+    return;
+  }
+
+  const message = buildTaskMessage(step.step_type, lead);
+  const title = `Task due: ${step.step_type.replace(/_/g, ' ')}`;
+
+  await db.query(
+    `INSERT INTO notifications (user_id, type, title, message, metadata, is_read, created_at)
+     VALUES ($1, 'task_due', $2, $3, $4, FALSE, NOW())`,
+    [
+      userId,
+      title,
+      message,
+      JSON.stringify({
+        stepId: step.id,
+        stepType: step.step_type,
+        leadId: lead.id,
+        leadName: lead.full_name || null,
+        linkedinUrl: lead.linkedin_url || null,
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        taskInstruction: step.ai_prompt_override || null,
+      }),
+    ]
+  );
+
+  logger.debug('Created task notification', {
+    userId,
+    stepType: step.step_type,
+    campaignId: campaign.id,
+    leadId: lead.id,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Condition evaluation
 // ---------------------------------------------------------------------------
 
@@ -309,7 +395,8 @@ async function processLeadState(state, campaign, brandId) {
 
   // Fetch lead data
   const leadResult = await db.query(
-    `SELECT id, full_name, email, industry, lead_type, project_details, unsubscribed
+    `SELECT id, full_name, email, industry, lead_type, project_details, unsubscribed,
+            linkedin_url, assigned_to
      FROM leads WHERE id = $1`,
     [leadId]
   );
@@ -335,9 +422,12 @@ async function processLeadState(state, campaign, brandId) {
   // For 'email' steps: send the email, then advance
   // For 'condition' steps: evaluate and branch, no email to send
   // For 'wait' steps: just advance when delay has passed
+  // For LinkedIn / manual steps: create a task notification and advance immediately
 
   if (currentStep.step_type === 'email') {
     await queueStepEmail(currentStep, lead, campaign, brandId);
+  } else if (MANUAL_TASK_TYPES.has(currentStep.step_type)) {
+    await createTaskNotification(currentStep, lead, campaign);
   }
 
   // Find next step
