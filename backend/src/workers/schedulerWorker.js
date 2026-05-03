@@ -8,6 +8,7 @@ const { addEmailToQueue } = require('./emailWorker');
 const { generateEmail } = require('../services/emailGenerator');
 const { progressWarmup } = require('../services/warmupManager');
 const { checkAllAccounts: checkAllBlacklists } = require('../services/blacklistChecker');
+const { processSequenceSteps } = require('./sequenceProcessor');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -797,6 +798,7 @@ async function startScheduler() {
   // ── (e) Campaign processor - every minute ───────────────────────────
   tasks.campaignProcessor = cron.schedule('* * * * *', async () => {
     await runCampaignProcessor();
+    await processSequenceSteps();
   }, { scheduled: true });
 
   logger.info('Scheduler: Campaign processor every 1m');

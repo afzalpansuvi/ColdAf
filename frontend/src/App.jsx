@@ -10,6 +10,7 @@ import AcceptInvite from './pages/AcceptInvite';
 import Dashboard from './pages/Dashboard';
 import Campaigns from './pages/Campaigns';
 import CampaignDetail from './pages/CampaignDetail';
+import SequenceBuilder from './pages/SequenceBuilder';
 import Leads from './pages/Leads';
 import LeadDetail from './pages/LeadDetail';
 import Brands from './pages/Brands';
@@ -134,6 +135,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="campaigns" element={<Campaigns />} />
         <Route path="campaigns/:id" element={<CampaignDetail />} />
+        <Route path="campaigns/:id/sequence" element={<AdminRoute><SequenceBuilder /></AdminRoute>} />
         <Route path="leads" element={<Leads />} />
         <Route path="leads/:id" element={<LeadDetail />} />
         <Route path="analytics" element={<Analytics />} />

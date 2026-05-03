@@ -1118,4 +1118,185 @@ router.delete('/:id', requirePermission('campaigns.manage'), async (req, res) =>
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /:id/sequence — returns all sequence steps for a campaign
+// ---------------------------------------------------------------------------
+router.get('/:id/sequence', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const campaignCheck = await db.query(
+      `SELECT id FROM campaigns WHERE id = $1 AND organization_id = $2`,
+      [id, req.organizationId]
+    );
+
+    if (campaignCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Campaign not found.' });
+    }
+
+    const result = await db.query(
+      `SELECT id, campaign_id, parent_step_id, step_order, step_type,
+              condition_type, condition_value, delay_days, delay_hours,
+              template_id, subject_override, branch_label,
+              position_x, position_y, is_active, created_at, updated_at
+       FROM sequence_steps
+       WHERE campaign_id = $1
+       ORDER BY step_order ASC`,
+      [id]
+    );
+
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    logger.error('Get sequence steps error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to fetch sequence steps.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/sequence — creates/replaces all sequence steps for a campaign
+// Accepts body: { steps: [ { stepOrder, stepType, conditionType, delayDays,
+//   delayHours, templateId, subjectOverride, parentStepId, branchLabel } ] }
+// ---------------------------------------------------------------------------
+router.post('/:id/sequence', requirePermission('campaigns.manage'), async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { id } = req.params;
+    const { steps } = req.body;
+
+    if (!Array.isArray(steps)) {
+      return res.status(400).json({ success: false, message: 'Body must contain a "steps" array.' });
+    }
+
+    const campaignCheck = await client.query(
+      `SELECT id FROM campaigns WHERE id = $1 AND organization_id = $2`,
+      [id, req.organizationId]
+    );
+
+    if (campaignCheck.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ success: false, message: 'Campaign not found.' });
+    }
+
+    await client.query('BEGIN');
+
+    // Delete existing steps
+    await client.query(`DELETE FROM sequence_steps WHERE campaign_id = $1`, [id]);
+
+    const inserted = [];
+    for (const step of steps) {
+      const r = await client.query(
+        `INSERT INTO sequence_steps
+          (campaign_id, parent_step_id, step_order, step_type, condition_type,
+           condition_value, delay_days, delay_hours, template_id,
+           subject_override, branch_label, position_x, position_y, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         RETURNING *`,
+        [
+          id,
+          step.parentStepId || null,
+          step.stepOrder ?? 0,
+          step.stepType || 'email',
+          step.conditionType || 'no_action',
+          step.conditionValue || null,
+          step.delayDays ?? 0,
+          step.delayHours ?? 0,
+          step.templateId || null,
+          step.subjectOverride || null,
+          step.branchLabel || null,
+          step.positionX ?? 0,
+          step.positionY ?? 0,
+          step.isActive !== false,
+        ]
+      );
+      inserted.push(r.rows[0]);
+    }
+
+    // Enable sequences on the campaign
+    await client.query(
+      `UPDATE campaigns SET use_sequences = TRUE, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    logger.info('Sequence steps saved', { campaignId: id, stepCount: inserted.length, savedBy: req.user.id });
+
+    return res.json({ success: true, data: inserted });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    logger.error('Save sequence steps error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to save sequence steps.' });
+  } finally {
+    client.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /:id/sequence/:stepId — update a single sequence step
+// ---------------------------------------------------------------------------
+router.put('/:id/sequence/:stepId', requirePermission('campaigns.manage'), async (req, res) => {
+  try {
+    const { id, stepId } = req.params;
+
+    const campaignCheck = await db.query(
+      `SELECT id FROM campaigns WHERE id = $1 AND organization_id = $2`,
+      [id, req.organizationId]
+    );
+
+    if (campaignCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Campaign not found.' });
+    }
+
+    const stepCheck = await db.query(
+      `SELECT id FROM sequence_steps WHERE id = $1 AND campaign_id = $2`,
+      [stepId, id]
+    );
+
+    if (stepCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sequence step not found.' });
+    }
+
+    const {
+      stepOrder, stepType, conditionType, conditionValue,
+      delayDays, delayHours, templateId, subjectOverride,
+      branchLabel, parentStepId, positionX, positionY, isActive,
+    } = req.body;
+
+    const setClauses = [];
+    const params = [];
+    let idx = 1;
+
+    if (stepOrder !== undefined) { setClauses.push(`step_order = $${idx++}`); params.push(stepOrder); }
+    if (stepType !== undefined) { setClauses.push(`step_type = $${idx++}`); params.push(stepType); }
+    if (conditionType !== undefined) { setClauses.push(`condition_type = $${idx++}`); params.push(conditionType); }
+    if (conditionValue !== undefined) { setClauses.push(`condition_value = $${idx++}`); params.push(conditionValue); }
+    if (delayDays !== undefined) { setClauses.push(`delay_days = $${idx++}`); params.push(delayDays); }
+    if (delayHours !== undefined) { setClauses.push(`delay_hours = $${idx++}`); params.push(delayHours); }
+    if (templateId !== undefined) { setClauses.push(`template_id = $${idx++}`); params.push(templateId); }
+    if (subjectOverride !== undefined) { setClauses.push(`subject_override = $${idx++}`); params.push(subjectOverride); }
+    if (branchLabel !== undefined) { setClauses.push(`branch_label = $${idx++}`); params.push(branchLabel); }
+    if (parentStepId !== undefined) { setClauses.push(`parent_step_id = $${idx++}`); params.push(parentStepId); }
+    if (positionX !== undefined) { setClauses.push(`position_x = $${idx++}`); params.push(positionX); }
+    if (positionY !== undefined) { setClauses.push(`position_y = $${idx++}`); params.push(positionY); }
+    if (isActive !== undefined) { setClauses.push(`is_active = $${idx++}`); params.push(isActive); }
+
+    if (setClauses.length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields provided for update.' });
+    }
+
+    setClauses.push(`updated_at = NOW()`);
+    params.push(stepId);
+
+    const result = await db.query(
+      `UPDATE sequence_steps SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+      params
+    );
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    logger.error('Update sequence step error', { error: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to update sequence step.' });
+  }
+});
+
 module.exports = router;

@@ -27,6 +27,7 @@ import {
   ToggleLeft,
   ToggleRight,
   ChevronDown,
+  GitBranch,
 } from 'lucide-react';
 
 // ── Tabs ────────────────────────────────────────────────────────────
@@ -435,6 +436,13 @@ export default function CampaignDetail() {
               <Pencil className="w-3.5 h-3.5" />
               Edit
             </button>
+            <Link
+              to={`/campaigns/${id}/sequence`}
+              className="btn-secondary btn-sm flex items-center gap-1.5"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              Manage Sequence
+            </Link>
           </div>
         )}
       </div>
