@@ -505,19 +505,22 @@ export default function Layout() {
 // Billing status banner
 // ---------------------------------------------------------------------------
 function BillingStatusBannerInline() {
+  const { organization } = useAuth();
   const [usage, setUsage] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    // Skip for platform-level users without an org — billing/usage requires org context
+    if (!organization?.id) return;
     let cancelled = false;
     (async () => {
       try {
         const res = await api.get('/billing/usage');
-        if (!cancelled) setUsage(res.data.data);
+        if (!cancelled) setUsage(res.data?.data || res.data || null);
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [organization?.id]);
 
   if (!usage || dismissed) return null;
 

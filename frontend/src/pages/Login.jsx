@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, AlertCircle, Mail, Lock } from 'lucide-react';
 
@@ -140,7 +141,7 @@ export default function Login() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Don't have an account?{' '}
-          <a href="/signup" className="text-brand-600 font-medium hover:text-brand-700">Sign up</a>
+          <Link to="/signup" className="text-brand-600 font-medium hover:text-brand-700">Sign up</Link>
         </p>
         <p className="text-center text-xs text-gray-400 mt-2">
           ColdAF Email Tool &mdash; Cold outreach, simplified.
