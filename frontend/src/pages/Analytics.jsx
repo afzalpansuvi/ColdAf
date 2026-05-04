@@ -265,13 +265,15 @@ export default function Analytics() {
 
       setFunnel(results[0].data || null);
       setTimeline(
-        (results[1].data || []).map((d) => ({
+        (Array.isArray(results[1].data) ? results[1].data : []).map((d) => ({
           ...d,
           date: d.date ? format(new Date(d.date), 'MMM dd') : d.label || '',
         }))
       );
-      setCampaignBreakdown(results[2].data || []);
-      setBrandBreakdown(results[3].data || []);
+      // /analytics/campaigns returns { campaigns:[...], total, page } — unwrap
+      const rawCd = results[2].data;
+      setCampaignBreakdown(Array.isArray(rawCd) ? rawCd : (rawCd?.campaigns || []));
+      setBrandBreakdown(Array.isArray(results[3].data) ? results[3].data : []);
       setSmtpPerformance(results[4].data || []);
       setHeatmap(results[5].data || []);
       setTopSubjects(results[6].data || []);
@@ -342,7 +344,7 @@ export default function Analytics() {
   };
 
   const sortedCampaigns = useMemo(() => {
-    const arr = [...campaignBreakdown];
+    const arr = Array.isArray(campaignBreakdown) ? [...campaignBreakdown] : [];
     arr.sort((a, b) => {
       const aVal = a[campSort] ?? 0;
       const bVal = b[campSort] ?? 0;
@@ -352,7 +354,7 @@ export default function Analytics() {
   }, [campaignBreakdown, campSort, campSortDir]);
 
   const sortedBrands = useMemo(() => {
-    const arr = [...brandBreakdown];
+    const arr = Array.isArray(brandBreakdown) ? [...brandBreakdown] : [];
     arr.sort((a, b) => {
       const aVal = a[brandSort] ?? 0;
       const bVal = b[brandSort] ?? 0;
