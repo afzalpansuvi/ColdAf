@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
 import api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function NotificationBell() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -16,11 +18,14 @@ export default function NotificationBell() {
     } catch (e) { /* silent */ }
   };
 
+  // Only poll when the user is authenticated — prevents unauthenticated 401s
+  // on mount from triggering the auth:session-expired cycle.
   useEffect(() => {
+    if (!user) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // Close dropdown on outside click
   useEffect(() => {

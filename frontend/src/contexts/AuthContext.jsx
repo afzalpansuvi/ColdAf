@@ -62,6 +62,18 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { fetchUser(); }, [fetchUser]);
 
+  // Listen for session-expired events fired by the API client when a refresh
+  // fails. Updating React state here triggers App.jsx's <Navigate to="/login">
+  // soft redirect — no hard page reload, no infinite loop.
+  useEffect(() => {
+    const handler = () => {
+      setUser(null);
+      setOrganization(null);
+    };
+    window.addEventListener('auth:session-expired', handler);
+    return () => window.removeEventListener('auth:session-expired', handler);
+  }, []);
+
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     // Backend wraps in { success, data: { user, organization } }

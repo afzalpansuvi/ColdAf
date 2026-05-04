@@ -39,7 +39,8 @@ class ApiClient {
       if (refreshed) {
         return fetch(url, config).then(r => r.json());
       }
-      window.location.href = '/login';
+      // Dispatch a DOM event so AuthContext can react via React state (no hard reload).
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
       throw new Error('Session expired');
     }
 
