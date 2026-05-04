@@ -249,14 +249,18 @@ export default function Dashboard() {
 
         setOverview(overviewRes.data || {});
         setTimeline(
-          (timelineRes.data || []).map((d) => ({
+          (Array.isArray(timelineRes.data) ? timelineRes.data : []).map((d) => ({
             ...d,
             date: d.date ? format(new Date(d.date), 'MMM dd') : d.label || '',
           }))
         );
-        setLeadDistribution(leadStatusRes.data || []);
-        setTopSubjects(subjectsRes.data || []);
-        setCampaigns(campaignsRes.data || []);
+        // lead-status-distribution returns { status, count } rows — normalise to { name, value }
+        const rawLead = Array.isArray(leadStatusRes.data) ? leadStatusRes.data : [];
+        setLeadDistribution(rawLead.map(r => ({ name: r.name ?? r.status ?? r.label ?? 'Unknown', value: r.value ?? r.count ?? 0, color: r.color })));
+        setTopSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
+        // /analytics/campaigns returns { campaigns:[...], total, page, totalPages } — unwrap
+        const cd = campaignsRes.data;
+        setCampaigns(Array.isArray(cd) ? cd : (cd?.campaigns || []));
 
         const anyFailed = results.some((r) => r.status === 'rejected');
         if (anyFailed) {
