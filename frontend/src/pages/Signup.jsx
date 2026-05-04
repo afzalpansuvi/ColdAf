@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
-import { Loader2, AlertCircle, Mail, Lock, User, Building2, FileText } from 'lucide-react';
+import { Loader2, AlertCircle, Mail, Lock, User, Building2 } from 'lucide-react';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -79,7 +79,7 @@ export default function Signup() {
           <div className="flex flex-col items-center mb-8">
             <img src="/ataflex-logo.svg" alt="AtAflex Solutions" className="w-14 h-14 mb-4" />
             <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
-            <p className="text-sm text-gray-500 mt-1">Sign up as a Super Admin to manage organizations</p>
+            <p className="text-sm text-gray-500 mt-1">Sign up to the next generation of Cold Email/Calling System</p>
           </div>
 
           {error && (
@@ -154,20 +154,6 @@ export default function Signup() {
                 <input type="text" value={form.companyName} onChange={update('companyName')}
                   placeholder="Your company"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-brand-400"
-                  style={inputStyle} />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Why do you want access?</label>
-              <div className="relative">
-                <div className="absolute top-3 left-3.5 pointer-events-none">
-                  <FileText className="w-4 h-4 text-gray-400" />
-                </div>
-                <textarea value={form.reason} onChange={update('reason')}
-                  placeholder="Brief description of your use case..."
-                  rows={2}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
                   style={inputStyle} />
               </div>
             </div>
