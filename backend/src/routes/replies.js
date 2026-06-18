@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
+const { tenantScope } = require('../middleware/tenantScope');
 const audit = require('../services/audit');
 const { sendEmail } = require('../services/emailSender');
 const { sanitizeBody } = require('../middleware/validation');
