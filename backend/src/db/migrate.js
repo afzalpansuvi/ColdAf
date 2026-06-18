@@ -44,6 +44,15 @@ async function migrate() {
     client = await pool.connect();
     console.log('Connected to PostgreSQL');
 
+    // Acquire advisory lock to prevent concurrent migrations
+    const lockResult = await client.query(
+      `SELECT pg_try_advisory_lock(123456789)`
+    );
+    if (!lockResult.rows[0].pg_try_advisory_lock) {
+      console.error('Another migration is already running. Aborting.');
+      process.exit(1);
+    }
+
     // Create migrations tracking table if it doesn't exist
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
@@ -82,6 +91,12 @@ async function migrate() {
     process.exit(1);
   } finally {
     if (client) {
+      // Release advisory lock before returning connection to pool
+      try {
+        await client.query('SELECT pg_advisory_unlock(123456789)');
+      } catch (unlockErr) {
+        console.warn('Warning: failed to release advisory lock', unlockErr.message);
+      }
       client.release();
     }
     await pool.end();

@@ -1,5 +1,3 @@
-import { getMockData } from './mockDataInterceptor';
-
 const API_BASE = '/api';
 
 class ApiClient {
@@ -23,10 +21,8 @@ class ApiClient {
     try {
       res = await fetch(url, config);
     } catch (err) {
-      // Network error (server down) -> return mock data
-      const mock = getMockData(options.method || 'GET', path);
-      if (mock) return mock;
-      throw err;
+      // Network error — no mock fallback. Surface it so the user knows the backend is unreachable.
+      throw new Error('Network error: unable to reach the server. Please check your connection or try again later.');
     }
 
     if (res.status === 401) {
@@ -49,12 +45,11 @@ class ApiClient {
     }
 
     if (!res.ok) {
-      // Mock data bypass for missing/unimplemented endpoints (e.g. 404, 500)
-      const mock = getMockData(options.method || 'GET', path);
-      if (mock) return mock;
-
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || data.message || 'Request failed');
+      const message = data.error || data.message || `Request failed (${res.status})`;
+      // Dispatch toast event so the UI can show the error to the user
+      window.dispatchEvent(new CustomEvent('toast:error', { detail: message }));
+      throw new Error(message);
     }
 
     const data = await res.json();
@@ -81,6 +76,10 @@ class ApiClient {
 
   put(path, body) {
     return this.request(path, { method: 'PUT', body });
+  }
+
+  patch(path, body) {
+    return this.request(path, { method: 'PATCH', body });
   }
 
   delete(path) {

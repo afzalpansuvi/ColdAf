@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import { Loader2, AlertCircle, Mail, Lock, User, Building2 } from 'lucide-react';
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { fetchUser } = useAuth();
   const [form, setForm] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     fullName: '',
     companyName: '',
-    reason: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,9 +45,11 @@ export default function Signup() {
         password: form.password,
         fullName: form.fullName,
         companyName: form.companyName,
-        reason: form.reason,
       });
-      navigate('/pending-approval');
+      // Backend auto-creates a Free org and logs the user in via cookies.
+      // Refresh AuthContext so the app picks up the new session, then go to dashboard.
+      if (fetchUser) await fetchUser();
+      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Signup failed. Please try again.');
     } finally {

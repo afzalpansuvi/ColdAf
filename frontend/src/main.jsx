@@ -7,15 +7,19 @@ import { BrandingProvider } from './contexts/BrandingContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
+import { ToastProvider } from './contexts/ToastContext';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <BrandingProvider>
-            <App />
-          </BrandingProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <BrandingProvider>
+              <App />
+            </BrandingProvider>
+          </AuthProvider>
+        </ToastProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>

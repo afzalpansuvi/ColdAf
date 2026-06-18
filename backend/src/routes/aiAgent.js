@@ -68,12 +68,14 @@ router.get('/status', async (req, res) => {
     const queueBacklogLimit = parseInt(await getSetting('ai_agent_queue_backlog_limit', '1000'), 10) || 1000;
     const aiModel = await getSetting('ai_agent_model', 'claude-haiku-4-5');
 
-    // Get last check from most recent log
+    // Get last check from most recent log (scoped to org)
     const lastCheckResult = await db.query(
       `SELECT created_at, status, summary
        FROM ai_agent_logs
+       WHERE organization_id = $1
        ORDER BY created_at DESC
-       LIMIT 1`
+       LIMIT 1`,
+      [req.organizationId]
     );
 
     let lastCheck = null;
@@ -312,12 +314,28 @@ router.get('/logs', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 20;
     const agentId = req.query.agentId || null;
-    const logs = await getAgentLogs(agentId, limit);
+    const safeLimit = Math.max(1, Math.min(limit, 200));
+    const orgId = req.organizationId;
+
+    let sql = `SELECT id, agent_id, status, summary, metrics_snapshot, actions_taken, token_usage, created_at
+       FROM ai_agent_logs
+       WHERE (organization_id = $1 OR organization_id IS NULL)`;
+    const params = [orgId];
+
+    if (agentId) {
+      params.push(agentId);
+      sql += ` AND agent_id = $${params.length}`;
+    }
+
+    sql += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+    params.push(safeLimit);
+
+    const result = await db.query(sql, params);
 
     return res.json({
       success: true,
       data: {
-        logs: logs.map(formatLog),
+        logs: result.rows.map(formatLog),
       },
     });
   } catch (err) {

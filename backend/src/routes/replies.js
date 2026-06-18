@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const audit = require('../services/audit');
 const { sendEmail } = require('../services/emailSender');
-const { tenantScope, requireOrg } = require('../middleware/tenantScope');
+const { sanitizeBody } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -360,7 +360,7 @@ router.put('/mark-all-read', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /send - Send a reply from the dashboard
 // ---------------------------------------------------------------------------
-router.post('/send', async (req, res) => {
+router.post('/send', sanitizeBody, async (req, res) => {
   try {
     const { leadId, brandId, smtpAccountId, subject, bodyHtml, bodyText, inReplyTo } = req.body;
 

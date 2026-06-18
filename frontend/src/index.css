@@ -241,6 +241,59 @@
 .dark .badge-gray { background: rgba(107, 114, 128, 0.15); color: #d1d5db; }
 .dark .badge-purple { background: rgba(139, 92, 246, 0.15); color: #d8b4fe; }
 
+/* ── Dark-mode overrides for hardcoded Tailwind utility classes ──
+   Many pages use raw `text-gray-900`, `bg-white`, etc. without `dark:`
+   counterparts. Rather than modifying every page, we override the most
+   common utility classes when an ancestor has `class="dark"`. */
+.dark .text-gray-900 { color: #f3f4f6 !important; }
+.dark .text-gray-800 { color: #e5e7eb !important; }
+.dark .text-gray-700 { color: #d1d5db !important; }
+.dark .text-gray-600 { color: #cbd5e1 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-gray-400 { color: #94a3b8 !important; }
+.dark .text-black     { color: #f3f4f6 !important; }
+
+/* Background overrides */
+.dark .bg-white       { background-color: rgba(30, 20, 60, 0.85) !important; }
+.dark .bg-gray-50     { background-color: rgba(20, 15, 45, 0.6) !important; }
+.dark .bg-gray-100    { background-color: rgba(30, 20, 60, 0.7) !important; }
+.dark .bg-gray-200    { background-color: rgba(40, 28, 75, 0.7) !important; }
+
+/* Borders */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 { border-color: rgba(139, 92, 246, 0.18) !important; }
+
+/* Hover backgrounds (table rows etc.) */
+.dark .hover\:bg-gray-50:hover  { background-color: rgba(40, 25, 80, 0.5) !important; }
+.dark .hover\:bg-gray-100:hover { background-color: rgba(50, 30, 90, 0.55) !important; }
+.dark .hover\:bg-brand-50\/30:hover { background-color: rgba(139, 92, 246, 0.08) !important; }
+
+/* Modals — they use bg-white with explicit text-gray-XXX inside */
+.dark .bg-black\/40 { background-color: rgba(0, 0, 0, 0.7) !important; }
+
+/* Accent text that becomes hard to read */
+.dark .text-brand-600 { color: #c4b5fd !important; }
+.dark .text-brand-700 { color: #ddd6fe !important; }
+
+/* Make sure inputs without .input-field still readable */
+.dark input[type="text"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="email"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="password"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="number"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="search"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="date"]:not(.input-field):not([class*="bg-"]),
+.dark input[type="time"]:not(.input-field):not([class*="bg-"]),
+.dark textarea:not(.input-field):not([class*="bg-"]),
+.dark select:not(.select-field):not([class*="bg-"]) {
+  background-color: rgba(30, 20, 60, 0.55) !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(139, 92, 246, 0.2) !important;
+}
+
+/* Placeholder color in dark mode */
+.dark ::placeholder { color: #94a3b8 !important; }
+
 /* ── Scrollbar styling ──────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;

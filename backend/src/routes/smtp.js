@@ -4,7 +4,7 @@ const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
-const audit = require('../services/audit');
+const { validateBody, sanitizeBody } = require('../middleware/validation');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { createNotification } = require('../services/notifications');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
@@ -168,7 +168,18 @@ router.get('/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST / - Create a new SMTP account
 // ---------------------------------------------------------------------------
-router.post('/', async (req, res) => {
+router.post('/', sanitizeBody, validateBody({
+  emailAddress: { type: 'email', required: true },
+  displayName: { type: 'string', required: false, max: 200 },
+  provider: { type: 'string', required: true },
+  smtpHost: { type: 'string', required: false, max: 255 },
+  smtpPort: { type: 'number', required: false, min: 1, max: 65535 },
+  smtpUsername: { type: 'string', required: false, max: 255 },
+  smtpPassword: { type: 'string', required: false, max: 500 },
+  apiKey: { type: 'string', required: false, max: 500 },
+  brandId: { type: 'uuid', required: false },
+  dailySendLimit: { type: 'number', required: false, min: 1, max: 10000 },
+}), async (req, res) => {
   try {
     const {
       emailAddress,

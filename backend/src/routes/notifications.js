@@ -25,11 +25,12 @@ router.get('/', async (req, res) => {
     const typeFilter = req.query.type || null;
     const unreadOnly = req.query.unread === 'true';
 
-    const params = [userId];
+    const baseParams = [userId, req.organizationId];
     let whereExtra = '';
+    let paramIndex = 3;
     if (typeFilter) {
-      params.push(typeFilter);
-      whereExtra += ` AND type = $${params.length}`;
+      whereExtra += ` AND type = $${paramIndex++}`;
+      baseParams.push(typeFilter);
     }
     if (unreadOnly) {
       whereExtra += ' AND is_read = FALSE';
@@ -37,21 +38,21 @@ router.get('/', async (req, res) => {
 
     // Count query
     const countResult = await db.query(
-      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1${whereExtra}`,
-      params
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1 AND organization_id = $2${whereExtra}`,
+      baseParams
     );
     const total = countResult.rows[0].total;
     const totalPages = Math.ceil(total / limit) || 1;
 
     // Data query
     const offset = (page - 1) * limit;
-    const dataParams = [...params, limit, offset];
+    const dataParams = [...baseParams, limit, offset];
     const dataResult = await db.query(
       `SELECT id, user_id, type, title, message, metadata, is_read, created_at
        FROM notifications
-       WHERE user_id = $1${whereExtra}
+       WHERE user_id = $1 AND organization_id = $2${whereExtra}
        ORDER BY created_at DESC
-       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+       LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
       dataParams
     );
 
@@ -93,8 +94,8 @@ router.get('/unread-count', async (req, res) => {
     const result = await db.query(
       `SELECT COUNT(*)::int AS count
        FROM notifications
-       WHERE user_id = $1 AND is_read = FALSE`,
-      [userId]
+       WHERE user_id = $1 AND organization_id = $2 AND is_read = FALSE`,
+      [userId, req.organizationId]
     );
 
     return res.json({
@@ -122,8 +123,8 @@ router.put('/mark-all-read', async (req, res) => {
     const result = await db.query(
       `UPDATE notifications
        SET is_read = TRUE
-       WHERE user_id = $1 AND is_read = FALSE`,
-      [userId]
+       WHERE user_id = $1 AND organization_id = $2 AND is_read = FALSE`,
+      [userId, req.organizationId]
     );
 
     logger.info('All notifications marked as read', {
@@ -156,9 +157,9 @@ router.put('/:id/read', async (req, res) => {
     const result = await db.query(
       `UPDATE notifications
        SET is_read = TRUE
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND user_id = $2 AND organization_id = $3
        RETURNING id, is_read`,
-      [id, userId]
+      [id, userId, req.organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -195,9 +196,9 @@ router.delete('/:id', async (req, res) => {
 
     const result = await db.query(
       `DELETE FROM notifications
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND user_id = $2 AND organization_id = $3
        RETURNING id`,
-      [id, userId]
+      [id, userId, req.organizationId]
     );
 
     if (result.rows.length === 0) {

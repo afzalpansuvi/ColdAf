@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
-import { Loader2, Plus, Shield, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Shield, Trash2, X, Check } from 'lucide-react';
+
+const ROLE_OPTIONS = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'support_admin', label: 'Support Admin' },
+  { value: 'billing_admin', label: 'Billing Admin' },
+  { value: 'org_admin', label: 'Org Admin' },
+];
 
 export default function AdminManagement() {
   const [admins, setAdmins] = useState([]);
@@ -10,6 +17,8 @@ export default function AdminManagement() {
   const [form, setForm] = useState({ email: '', role: 'super_admin' });
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [editingRole, setEditingRole] = useState(null); // user id currently being role-edited
+  const [roleValue, setRoleValue] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +61,31 @@ export default function AdminManagement() {
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to remove admin.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const startRoleEdit = (a) => {
+    setEditingRole(a.id);
+    setRoleValue(a.role_name || 'super_admin');
+  };
+
+  const cancelRoleEdit = () => {
+    setEditingRole(null);
+    setRoleValue('');
+  };
+
+  const saveRole = async (id) => {
+    setActionLoading(true);
+    setError(null);
+    try {
+      await api.patch(`/admin/admins/${id}/role`, { role: roleValue });
+      setEditingRole(null);
+      load();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to update role.');
     } finally {
       setActionLoading(false);
     }
@@ -111,7 +145,47 @@ export default function AdminManagement() {
                       </div>
                     </td>
                     <td className="table-cell">
-                      <span className="badge badge-purple capitalize">{a.role?.replace(/_/g, ' ')}</span>
+                      {a.is_platform_owner ? (
+                        <span className="badge badge-purple capitalize">Platform Owner</span>
+                      ) : editingRole === a.id ? (
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={roleValue}
+                            onChange={(e) => setRoleValue(e.target.value)}
+                            className="select-field py-1 text-xs"
+                            autoFocus
+                          >
+                            {ROLE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => saveRole(a.id)}
+                            disabled={actionLoading}
+                            className="text-green-600 hover:text-green-700 p-1"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={cancelRoleEdit}
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startRoleEdit(a)}
+                          title="Click to change role"
+                          className="text-left"
+                        >
+                          <span className="badge badge-purple capitalize hover:opacity-80 cursor-pointer">
+                            {a.role_name?.replace(/_/g, ' ') || '—'}
+                          </span>
+                        </button>
+                      )}
                     </td>
                     <td className="table-cell text-gray-500 text-xs">
                       {a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}
@@ -168,9 +242,9 @@ export default function AdminManagement() {
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="select-field"
                 >
-                  <option value="super_admin">Super Admin</option>
-                  <option value="support_admin">Support Admin</option>
-                  <option value="billing_admin">Billing Admin</option>
+                  {ROLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">

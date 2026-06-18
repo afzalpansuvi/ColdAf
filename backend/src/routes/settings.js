@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const { requireRole, requirePermission } = require('../middleware/rbac');
+const { sanitizeBody } = require('../middleware/validation');
 const audit = require('../services/audit');
 
 const router = express.Router();
@@ -101,7 +102,7 @@ router.get('/', async (req, res) => {
 // ---------------------------------------------------------------------------
 // PUT / - Update multiple settings at once
 // ---------------------------------------------------------------------------
-router.put('/', async (req, res) => {
+router.put('/', sanitizeBody, async (req, res) => {
   try {
     const updates = req.body;
 

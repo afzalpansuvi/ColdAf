@@ -3,6 +3,7 @@ const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requirePermission } = require('../middleware/rbac');
+const { validateBody, sanitizeBody } = require('../middleware/validation');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const audit = require('../services/audit');
 const { getOptimalSendWindows, adjustCampaignSchedule } = require('../services/sendTimeOptimizer');
@@ -267,32 +268,53 @@ router.get('/:id', async (req, res) => {
 // POST / - Create campaign (admin only)
 // Uses a transaction to insert campaign + campaign_brands
 // ---------------------------------------------------------------------------
-router.post('/', requirePermission('campaigns.manage'), async (req, res) => {
+router.post('/', requirePermission('campaigns.manage'), sanitizeBody, validateBody({
+  name: { type: 'string', required: true, min: 1, max: 200 },
+  description: { type: 'string', required: false, max: 1000 },
+  brandIds: { type: 'array', required: true, min: 1 },
+  scheduleStart: { type: 'string', required: false },
+  scheduleEnd: { type: 'string', required: false },
+  dailySendLimit: { type: 'number', required: false, min: 1, max: 10000 },
+  minDelayMinutes: { type: 'number', required: false, min: 1, max: 1440 },
+  maxDelayMinutes: { type: 'number', required: false, min: 1, max: 1440 },
+  sendWindowStart: { type: 'string', required: false },
+  sendWindowEnd: { type: 'string', required: false },
+  followupCount: { type: 'number', required: false, min: 0, max: 10 },
+}), async (req, res) => {
   const client = await db.getClient();
   try {
-    const {
-      name,
-      description,
-      brandIds,
-      leadFilter,
-      scheduleStart,
-      scheduleEnd,
-      dailySendLimit,
-      minDelayMinutes,
-      maxDelayMinutes,
-      sendWindowStart,
-      sendWindowEnd,
-      sendDays,
-      followupCount,
-      followupDelays,
-      autoPauseBounceRate,
-      autoPauseSpamRate,
-      autoPauseEnabled,
-      isMultiBrand,
-      multiBrandStrategy,
-      multiBrandStaggerDays,
-      sendTimeOptimization,
-    } = req.body;
+    // Accept BOTH the new nested camelCase payload (frontend) and legacy flat payload.
+    const b = req.body || {};
+    const name = b.name;
+    const description = b.description;
+    const brandIds = b.brandIds || b.brand_ids;
+    // Lead filters: nested `leadFilters` from frontend OR flat `leadFilter`
+    const leadFilter = b.leadFilter ?? b.leadFilters ?? null;
+    // Schedule: nested `schedule.{startDate,endDate}` OR flat `scheduleStart/End`
+    const scheduleStart = b.scheduleStart ?? b.schedule?.startDate ?? null;
+    const scheduleEnd = b.scheduleEnd ?? b.schedule?.endDate ?? null;
+    // Sending config: nested `sendingConfig.{dailyLimit,...}` OR flat
+    const sc = b.sendingConfig || {};
+    const dailySendLimit = b.dailySendLimit ?? sc.dailyLimit;
+    const minDelayMinutes = b.minDelayMinutes ?? sc.minDelay;
+    const maxDelayMinutes = b.maxDelayMinutes ?? sc.maxDelay;
+    const sendWindowStart = b.sendWindowStart ?? sc.sendWindowStart;
+    const sendWindowEnd = b.sendWindowEnd ?? sc.sendWindowEnd;
+    const sendDays = b.sendDays ?? sc.sendDays;
+    // Follow-up: nested `followUpConfig.{count,delays}` OR flat `followupCount/Delays`
+    const fc = b.followUpConfig || {};
+    const followupCount = b.followupCount ?? fc.count;
+    const followupDelays = b.followupDelays ?? fc.delays;
+    // Auto-pause: nested `autoPause.{enabled,bounceRateThreshold,spamRateThreshold}` OR flat
+    const ap = b.autoPause || {};
+    const autoPauseEnabled = b.autoPauseEnabled ?? ap.enabled;
+    const autoPauseBounceRate = b.autoPauseBounceRate ?? ap.bounceRateThreshold;
+    const autoPauseSpamRate = b.autoPauseSpamRate ?? ap.spamRateThreshold;
+    // Multi-brand: handle `staggerDays` from frontend mapping to `multiBrandStaggerDays`
+    const multiBrandStrategy = b.multiBrandStrategy ?? null;
+    const multiBrandStaggerDays = b.multiBrandStaggerDays ?? b.staggerDays ?? null;
+    const isMultiBrand = b.isMultiBrand ?? (Array.isArray(brandIds) && brandIds.length > 1);
+    const sendTimeOptimization = b.sendTimeOptimization;
 
     // Validation
     if (!name || !name.trim()) {
@@ -395,7 +417,16 @@ router.post('/', requirePermission('campaigns.manage'), async (req, res) => {
 // PUT /:id - Update campaign (admin only)
 // Only editable when status is draft or paused
 // ---------------------------------------------------------------------------
-router.put('/:id', requirePermission('campaigns.manage'), async (req, res) => {
+router.put('/:id', requirePermission('campaigns.manage'), sanitizeBody, validateBody({
+  name: { type: 'string', required: false, min: 1, max: 200 },
+  description: { type: 'string', required: false, max: 1000 },
+  brandIds: { type: 'array', required: false, min: 1 },
+  scheduleStart: { type: 'string', required: false },
+  scheduleEnd: { type: 'string', required: false },
+  dailySendLimit: { type: 'number', required: false, min: 1, max: 10000 },
+  minDelayMinutes: { type: 'number', required: false, min: 1, max: 1440 },
+  maxDelayMinutes: { type: 'number', required: false, min: 1, max: 1440 },
+}), async (req, res) => {
   const client = await db.getClient();
   try {
     const { id } = req.params;
@@ -424,29 +455,32 @@ router.put('/:id', requirePermission('campaigns.manage'), async (req, res) => {
       });
     }
 
-    const {
-      name,
-      description,
-      brandIds,
-      leadFilter,
-      scheduleStart,
-      scheduleEnd,
-      dailySendLimit,
-      minDelayMinutes,
-      maxDelayMinutes,
-      sendWindowStart,
-      sendWindowEnd,
-      sendDays,
-      followupCount,
-      followupDelays,
-      autoPauseBounceRate,
-      autoPauseSpamRate,
-      autoPauseEnabled,
-      isMultiBrand,
-      multiBrandStrategy,
-      multiBrandStaggerDays,
-      sendTimeOptimization,
-    } = req.body;
+    // Accept both nested-camelCase (frontend) and flat-camelCase payloads
+    const b = req.body || {};
+    const name = b.name;
+    const description = b.description;
+    const brandIds = b.brandIds || b.brand_ids;
+    const leadFilter = b.leadFilter ?? b.leadFilters;
+    const scheduleStart = b.scheduleStart ?? b.schedule?.startDate;
+    const scheduleEnd = b.scheduleEnd ?? b.schedule?.endDate;
+    const sc = b.sendingConfig || {};
+    const dailySendLimit = b.dailySendLimit ?? sc.dailyLimit;
+    const minDelayMinutes = b.minDelayMinutes ?? sc.minDelay;
+    const maxDelayMinutes = b.maxDelayMinutes ?? sc.maxDelay;
+    const sendWindowStart = b.sendWindowStart ?? sc.sendWindowStart;
+    const sendWindowEnd = b.sendWindowEnd ?? sc.sendWindowEnd;
+    const sendDays = b.sendDays ?? sc.sendDays;
+    const fc = b.followUpConfig || {};
+    const followupCount = b.followupCount ?? fc.count;
+    const followupDelays = b.followupDelays ?? fc.delays;
+    const ap = b.autoPause || {};
+    const autoPauseEnabled = b.autoPauseEnabled ?? ap.enabled;
+    const autoPauseBounceRate = b.autoPauseBounceRate ?? ap.bounceRateThreshold;
+    const autoPauseSpamRate = b.autoPauseSpamRate ?? ap.spamRateThreshold;
+    const isMultiBrand = b.isMultiBrand;
+    const multiBrandStrategy = b.multiBrandStrategy;
+    const multiBrandStaggerDays = b.multiBrandStaggerDays ?? b.staggerDays;
+    const sendTimeOptimization = b.sendTimeOptimization;
 
     // Build dynamic SET clause
     const setClauses = [];

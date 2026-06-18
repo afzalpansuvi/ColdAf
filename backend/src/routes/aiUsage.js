@@ -83,7 +83,6 @@ router.get('/summary', async (req, res) => {
     const { fromDate, toDate } = parsePeriod(period, from, to);
     const pricing = await getPricingConfig();
 
-    // Agent logs aggregation
     const agentResult = await db.query(
       `SELECT
          DATE(created_at) AS date,
@@ -93,10 +92,10 @@ router.get('/summary', async (req, res) => {
          SUM(COALESCE((token_usage->>'output_tokens')::int, 0)) AS output_tokens,
          COUNT(*) AS request_count
        FROM ai_agent_logs
-       WHERE created_at >= $1 AND created_at <= $2
+       WHERE organization_id = $1 AND created_at >= $2 AND created_at <= $3
        GROUP BY DATE(created_at), provider, model
        ORDER BY date`,
-      [fromDate, toDate]
+      [req.organizationId, fromDate, toDate]
     );
 
     // Chat messages aggregation
@@ -109,11 +108,11 @@ router.get('/summary', async (req, res) => {
          SUM(COALESCE(output_tokens, 0)) AS output_tokens,
          COUNT(*) AS request_count
        FROM ai_chat_messages
-       WHERE role = 'assistant'
-         AND created_at >= $1 AND created_at <= $2
+       WHERE organization_id = $1 AND role = 'assistant'
+         AND created_at >= $2 AND created_at <= $3
        GROUP BY DATE(created_at), provider, model
        ORDER BY date`,
-      [fromDate, toDate]
+      [req.organizationId, fromDate, toDate]
     );
 
     // Merge and aggregate
@@ -234,9 +233,9 @@ router.get('/limits', async (req, res) => {
          SUM(COALESCE((token_usage->>'input_tokens')::int, 0)) AS input_tokens,
          SUM(COALESCE((token_usage->>'output_tokens')::int, 0)) AS output_tokens
        FROM ai_agent_logs
-       WHERE created_at >= $1
+       WHERE organization_id = $1 AND created_at >= $2
        GROUP BY provider, model`,
-      [monthStart]
+      [req.organizationId, monthStart]
     );
 
     const chatResult = await db.query(
@@ -246,9 +245,9 @@ router.get('/limits', async (req, res) => {
          SUM(COALESCE(input_tokens, 0)) AS input_tokens,
          SUM(COALESCE(output_tokens, 0)) AS output_tokens
        FROM ai_chat_messages
-       WHERE role = 'assistant' AND created_at >= $1
+       WHERE organization_id = $1 AND role = 'assistant' AND created_at >= $2
        GROUP BY provider, model`,
-      [monthStart]
+      [req.organizationId, monthStart]
     );
 
     let totalTokens = 0, totalCost = 0;

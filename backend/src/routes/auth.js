@@ -429,11 +429,19 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /signup/super-admin — Self-serve super admin registration
+// POST /signup/super-admin — Self-serve registration (creates Free-forever org)
 // ---------------------------------------------------------------------------
+// Endpoint name kept for frontend compatibility, but behavior is now:
+//   1. Create user with role = org_admin (full access within their own org)
+//   2. Auto-create a Free-forever organization owned by them
+//   3. Link user to org via users.organization_id
+//   4. Issue access + refresh tokens so they're logged in immediately
+//   5. No approval workflow — Free tier is self-serve
+// Platform owner can later upgrade their plan or assign them to teams.
 router.post('/signup/super-admin', loginLimiter, async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { email, password, fullName, companyName, reason } = req.body;
+    const { email, password, fullName, companyName } = req.body;
 
     if (!email || !password || !fullName) {
       return res.status(400).json({
@@ -449,8 +457,10 @@ router.post('/signup/super-admin', loginLimiter, async (req, res) => {
       });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if email already exists
-    const existing = await db.query(`SELECT id FROM users WHERE email = $1`, [email.toLowerCase().trim()]);
+    const existing = await client.query(`SELECT id FROM users WHERE email = $1`, [normalizedEmail]);
     if (existing.rows.length > 0) {
       return res.status(409).json({
         success: false,
@@ -458,60 +468,120 @@ router.post('/signup/super-admin', loginLimiter, async (req, res) => {
       });
     }
 
-    // Get super_admin role
-    const roleResult = await db.query(`SELECT id FROM roles WHERE name = 'super_admin'`);
+    // Get org_admin role
+    const roleResult = await client.query(`SELECT id FROM roles WHERE name = 'org_admin'`);
     if (roleResult.rows.length === 0) {
       return res.status(500).json({
         success: false,
-        message: 'Super admin role not found. Run migrations first.',
+        message: 'org_admin role not found. Run migrations first.',
       });
     }
-    const superAdminRoleId = roleResult.rows[0].id;
+    const orgAdminRoleId = roleResult.rows[0].id;
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user (no organization yet — super_admins create orgs after approval)
-    const userResult = await db.query(
+    await client.query('BEGIN');
+
+    // 1. Create the user (no org yet — we'll wire it up after creating the org)
+    const userResult = await client.query(
       `INSERT INTO users (email, password_hash, full_name, role_id, is_active)
        VALUES ($1, $2, $3, $4, TRUE)
        RETURNING id`,
-      [email.toLowerCase().trim(), passwordHash, fullName, superAdminRoleId]
+      [normalizedEmail, passwordHash, fullName, orgAdminRoleId]
     );
     const userId = userResult.rows[0].id;
 
-    // Create approval request
-    await db.query(
-      `INSERT INTO super_admin_requests (user_id, company_name, reason, status)
-       VALUES ($1, $2, $3, 'pending')`,
-      [userId, companyName || null, reason || null]
+    // 2. Auto-create a Free-forever organization for them
+    const orgName = (companyName && companyName.trim()) || `${fullName.split(' ')[0]}'s Workspace`;
+    const slug = generateSlug(orgName);
+    const orgResult = await client.query(
+      `INSERT INTO organizations (name, slug, owner_id, plan, plan_started_at)
+       VALUES ($1, $2, $3, 'free', NOW())
+       RETURNING id, slug, plan`,
+      [orgName, slug, userId]
     );
+    const org = orgResult.rows[0];
+
+    // 3. Link user to org
+    await client.query(
+      `UPDATE users SET organization_id = $1 WHERE id = $2`,
+      [org.id, userId]
+    );
+
+    // 4. Also create row in organization_users join table if it exists (used by admin queries)
+    try {
+      await client.query(
+        `INSERT INTO organization_users (organization_id, user_id, role_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [org.id, userId, orgAdminRoleId]
+      );
+    } catch (e) {
+      // organization_users table may not exist in all schemas — non-fatal
+      logger.debug('organization_users insert skipped', { error: e.message });
+    }
+
+    await client.query('COMMIT');
+
+    // 5. Issue tokens — log them in immediately
+    const userForToken = {
+      id: userId,
+      email: normalizedEmail,
+      role_name: 'org_admin',
+      permissions: ['*'],
+      organization_id: org.id,
+      organization_slug: org.slug,
+    };
+    const accessToken = generateAccessToken(userForToken);
+    const refreshTokenStr = generateRefreshToken();
+
+    // Persist refresh token (best-effort — table may or may not exist)
+    try {
+      await db.query(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+        [userId, refreshTokenStr]
+      );
+    } catch (e) {
+      logger.debug('refresh_tokens insert skipped', { error: e.message });
+    }
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshTokenStr);
 
     // Audit log
     await audit.logAction({
       actorId: userId,
       actorName: fullName,
-      actionType: 'super_admin.signup',
+      actionType: 'user.signup',
       targetType: 'user',
       targetId: userId,
-      description: `Super admin signup request from ${email}`,
+      description: `Self-serve signup: ${email} created Free org "${orgName}"`,
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
 
-    logger.info('Super admin signup request', { userId, email });
+    logger.info('User signup', { userId, email, orgId: org.id, plan: 'free' });
 
     return res.status(201).json({
       success: true,
-      message: 'Your account has been created and is pending approval by the platform owner.',
-      data: { id: userId, email, status: 'pending_approval' },
+      message: 'Account created. Welcome to ColdAF!',
+      data: {
+        user: { id: userId, email: normalizedEmail, fullName, role: 'org_admin' },
+        organization: { id: org.id, name: orgName, slug: org.slug, plan: 'free' },
+        token: accessToken,
+      },
     });
   } catch (err) {
-    logger.error('Super admin signup error', { error: err.message, stack: err.stack });
+    try { await client.query('ROLLBACK'); } catch {}
+    logger.error('Signup error', { error: err.message, stack: err.stack });
     return res.status(500).json({
       success: false,
       message: 'An internal error occurred during signup.',
     });
+  } finally {
+    client.release();
   }
 });
 

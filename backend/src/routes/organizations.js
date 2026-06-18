@@ -6,6 +6,7 @@ const { authenticate } = require('../middleware/auth');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const { requirePermission } = require('../middleware/rbac');
 const { checkUsageLimit } = require('../middleware/checkUsageLimit');
+const { sanitizeBody } = require('../middleware/validation');
 const audit = require('../services/audit');
 
 const router = express.Router();
@@ -204,7 +205,7 @@ router.get('/members', requireOrg, async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /invite — Invite a new member
 // ---------------------------------------------------------------------------
-router.post('/invite', requireOrg, requirePermission('*', 'users.invite'), checkUsageLimit('users'), async (req, res) => {
+router.post('/invite', requireOrg, requirePermission('*', 'users.invite'), checkUsageLimit('users'), sanitizeBody, async (req, res) => {
   try {
     const { email, roleId } = req.body;
 

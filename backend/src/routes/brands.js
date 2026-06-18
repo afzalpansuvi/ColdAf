@@ -8,7 +8,8 @@ const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
-const audit = require('../services/audit');
+const { validateBody, validateParams, sanitizeBody } = require('../middleware/validation');
+
 
 const router = express.Router();
 
@@ -174,9 +175,40 @@ router.get('/:id', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST / - Create a new brand (admin only)
+// Helpers — parse multipart fields (which arrive as strings) into proper types
 // ---------------------------------------------------------------------------
-router.post('/', requireRole('admin'), async (req, res) => {
+function parseIntField(v, fallback) {
+  if (v === undefined || v === null || v === '') return fallback;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function parseBoolField(v, fallback) {
+  if (v === undefined || v === null || v === '') return fallback;
+  if (typeof v === 'boolean') return v;
+  return v === 'true' || v === '1' || v === 1;
+}
+
+function parseArrayField(v, fallback) {
+  if (v === undefined || v === null || v === '') return fallback;
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    try { return JSON.parse(v); } catch { return fallback; }
+  }
+  return fallback;
+}
+
+// ---------------------------------------------------------------------------
+// POST / - Create a new brand (admin only)
+// Accepts JSON or multipart/form-data (with optional `logo` file field)
+// ---------------------------------------------------------------------------
+router.post('/', requireRole('admin'), upload.single('logo'), sanitizeBody, validateBody({
+  name: { type: 'string', required: true, min: 1, max: 200 },
+  primaryDomain: { type: 'domain', required: false },
+  websiteUrl: { type: 'url', required: false },
+  bookingLink: { type: 'url', required: false },
+  aiModel: { type: 'string', required: false, max: 100 },
+}), async (req, res) => {
   try {
     const {
       name,
@@ -185,18 +217,21 @@ router.post('/', requireRole('admin'), async (req, res) => {
       websiteUrl,
       aiSystemPrompt,
       bookingLink,
-      dailySendLimit,
       sendWindowStart,
       sendWindowEnd,
-      sendDays,
-      minDelayMinutes,
-      maxDelayMinutes,
       aiModel,
-      isActive,
-    } = req.body;
+    } = req.body || {};
+
+    const dailySendLimit = parseIntField(req.body.dailySendLimit, 100);
+    const minDelayMinutes = parseIntField(req.body.minDelayMinutes, 2);
+    const maxDelayMinutes = parseIntField(req.body.maxDelayMinutes, 5);
+    const isActive = parseBoolField(req.body.isActive, true);
+    const sendDays = parseArrayField(req.body.sendDays, [1, 2, 3, 4, 5]);
 
     // Validation
     if (!name || !name.trim()) {
+      // Clean up uploaded file if validation fails
+      if (req.file) try { fs.unlinkSync(req.file.path); } catch {}
       return res.status(400).json({
         success: false,
         message: 'Brand name is required.',
@@ -216,13 +251,15 @@ router.post('/', requireRole('admin'), async (req, res) => {
       });
     }
 
+    const logoUrl = req.file ? `/uploads/logos/${req.file.filename}` : null;
+
     const result = await db.query(
       `INSERT INTO brands
         (name, primary_domain, office_address, website_url, ai_system_prompt,
          booking_link, daily_send_limit, send_window_start, send_window_end,
          send_days, min_delay_minutes, max_delay_minutes, ai_model, is_active,
-         organization_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         logo_url, organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
       [
         name.trim(),
@@ -231,14 +268,15 @@ router.post('/', requireRole('admin'), async (req, res) => {
         websiteUrl || null,
         aiSystemPrompt || null,
         bookingLink || null,
-        dailySendLimit != null ? dailySendLimit : 100,
+        dailySendLimit,
         sendWindowStart || '09:00',
         sendWindowEnd || '17:00',
-        sendDays || [1, 2, 3, 4, 5],
-        minDelayMinutes != null ? minDelayMinutes : 2,
-        maxDelayMinutes != null ? maxDelayMinutes : 5,
+        sendDays,
+        minDelayMinutes,
+        maxDelayMinutes,
         aiModel || 'claude-sonnet-4-20250514',
-        isActive != null ? isActive : true,
+        isActive,
+        logoUrl,
         req.organizationId,
       ]
     );
@@ -295,9 +333,16 @@ router.post('/', requireRole('admin'), async (req, res) => {
 // ---------------------------------------------------------------------------
 // PUT /:id - Update a brand (admin only)
 // ---------------------------------------------------------------------------
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole('admin'), upload.single('logo'), sanitizeBody, validateBody({
+  name: { type: 'string', required: false, min: 1, max: 200 },
+  primaryDomain: { type: 'domain', required: false },
+  websiteUrl: { type: 'url', required: false },
+  bookingLink: { type: 'url', required: false },
+  aiModel: { type: 'string', required: false, max: 100 },
+}), async (req, res) => {
   try {
     const { id } = req.params;
+    const body = req.body || {};
     const {
       name,
       primaryDomain,
@@ -305,15 +350,16 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
       websiteUrl,
       aiSystemPrompt,
       bookingLink,
-      dailySendLimit,
       sendWindowStart,
       sendWindowEnd,
-      sendDays,
-      minDelayMinutes,
-      maxDelayMinutes,
       aiModel,
-      isActive,
-    } = req.body;
+    } = body;
+    // Coerce types from multipart strings (no-op when JSON)
+    const dailySendLimit = body.dailySendLimit !== undefined ? parseIntField(body.dailySendLimit, undefined) : undefined;
+    const minDelayMinutes = body.minDelayMinutes !== undefined ? parseIntField(body.minDelayMinutes, undefined) : undefined;
+    const maxDelayMinutes = body.maxDelayMinutes !== undefined ? parseIntField(body.maxDelayMinutes, undefined) : undefined;
+    const isActive = body.isActive !== undefined ? parseBoolField(body.isActive, undefined) : undefined;
+    const sendDays = body.sendDays !== undefined ? parseArrayField(body.sendDays, undefined) : undefined;
 
     // Verify brand exists within this organization
     const brandCheck = await db.query(`SELECT id, name FROM brands WHERE id = $1 AND organization_id = $2`, [id, req.organizationId]);
@@ -410,6 +456,12 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
     if (isActive !== undefined) {
       setClauses.push(`is_active = $${paramIndex++}`);
       params.push(isActive);
+    }
+
+    // If a new logo file was uploaded, set its URL
+    if (req.file) {
+      setClauses.push(`logo_url = $${paramIndex++}`);
+      params.push(`/uploads/logos/${req.file.filename}`);
     }
 
     if (setClauses.length === 0) {

@@ -4,6 +4,7 @@ const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
+const { sanitizeBody } = require('../middleware/validation');
 const { requireRole, requirePermission } = require('../middleware/rbac');
 const audit = require('../services/audit');
 const { encrypt, decrypt } = require('../utils/encryption');
@@ -82,7 +83,7 @@ router.get('/sheets', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /sheets - Create a new sheet connection
 // ---------------------------------------------------------------------------
-router.post('/sheets', async (req, res) => {
+router.post('/sheets', sanitizeBody, async (req, res) => {
   try {
     const {
       name,
@@ -574,7 +575,7 @@ router.get('/webhooks', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /webhooks - Create a webhook source
 // ---------------------------------------------------------------------------
-router.post('/webhooks', async (req, res) => {
+router.post('/webhooks', sanitizeBody, async (req, res) => {
   try {
     const { name, fieldMapping, brandId } = req.body;
 
@@ -897,7 +898,7 @@ router.get('/outbound', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /outbound - Create an outbound integration
 // ---------------------------------------------------------------------------
-router.post('/outbound', async (req, res) => {
+router.post('/outbound', sanitizeBody, async (req, res) => {
   try {
     const { name, type, config, eventTriggers } = req.body;
 

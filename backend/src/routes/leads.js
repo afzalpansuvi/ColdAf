@@ -9,6 +9,7 @@ const { requireRole } = require('../middleware/rbac');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const audit = require('../services/audit');
 const { isValidEmail } = require('../utils/validators');
+const { sanitizeBody, validateBody } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -343,25 +344,37 @@ router.get('/:id', authenticate, tenantScope, async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST / - Create single lead manually (admin only)
 // ---------------------------------------------------------------------------
-router.post('/', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.post('/', authenticate, tenantScope, sanitizeBody, requireRole('admin'), async (req, res) => {
   try {
-    const {
-      full_name, email, phone, lead_type, industry, project_details, brand_id,
-      job_title, company_name, company_size, linkedin_url, tech_stack, recent_news, enrichment_source,
-    } = req.body;
+    // Accept BOTH camelCase (frontend) and snake_case (legacy) keys
+    const b = req.body || {};
+    const full_name = b.full_name ?? b.fullName;
+    const email = b.email;
+    const phone = b.phone;
+    const lead_type = b.lead_type ?? b.leadType;
+    const industry = b.industry;
+    const project_details = b.project_details ?? b.projectDetails;
+    const brand_id = b.brand_id ?? b.brandId;
+    const job_title = b.job_title ?? b.jobTitle;
+    const company_name = b.company_name ?? b.companyName;
+    const company_size = b.company_size ?? b.companySize;
+    const linkedin_url = b.linkedin_url ?? b.linkedinUrl;
+    const tech_stack = b.tech_stack ?? b.techStack;
+    const recent_news = b.recent_news ?? b.recentNews;
+    const enrichment_source = b.enrichment_source ?? b.enrichmentSource;
 
     // Validation
     if (!full_name || !full_name.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'full_name is required.',
+        message: 'Full name is required.',
       });
     }
 
     if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'email is required.',
+        message: 'Email is required.',
       });
     }
 
@@ -374,17 +387,27 @@ router.post('/', authenticate, tenantScope, requireRole('admin'), async (req, re
       });
     }
 
-    if (!brand_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'brand_id is required.',
-      });
+    // Brand is optional now — if not provided, attach to the org's first/default brand.
+    let resolvedBrandId = brand_id;
+    if (!resolvedBrandId) {
+      const defaultBrand = await db.query(
+        `SELECT id FROM brands WHERE organization_id = $1 AND is_active = TRUE
+         ORDER BY created_at ASC LIMIT 1`,
+        [req.organizationId]
+      );
+      if (defaultBrand.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No brand selected and your organization has no brands yet. Create a brand first.',
+        });
+      }
+      resolvedBrandId = defaultBrand.rows[0].id;
     }
 
     // Check duplicate (email + brand_id unique within org)
     const dupCheck = await db.query(
       `SELECT id FROM leads WHERE email = $1 AND brand_id = $2 AND organization_id = $3`,
-      [normalizedEmail, brand_id, req.organizationId]
+      [normalizedEmail, resolvedBrandId, req.organizationId]
     );
 
     if (dupCheck.rows.length > 0) {
@@ -407,7 +430,7 @@ router.post('/', authenticate, tenantScope, requireRole('admin'), async (req, re
         lead_type || null,
         industry || null,
         project_details || null,
-        brand_id,
+        resolvedBrandId,
         req.organizationId,
       ]
     );
@@ -445,7 +468,7 @@ router.post('/', authenticate, tenantScope, requireRole('admin'), async (req, re
 // ---------------------------------------------------------------------------
 // PUT /:id - Update lead fields (admin only)
 // ---------------------------------------------------------------------------
-router.put('/:id', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.put('/:id', authenticate, tenantScope, sanitizeBody, requireRole('admin'), async (req, res) => {
   try {
     const { id } = req.params;
 

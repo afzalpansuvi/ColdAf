@@ -553,14 +553,153 @@ router.get('/pro-users', async (req, res) => {
 router.get('/admins', async (req, res) => {
   try {
     const result = await safeQuery(`
-      SELECT u.id, u.email, u.full_name, u.is_active, u.created_at, r.name AS role_name
+      SELECT u.id, u.email, u.full_name, u.is_active, u.created_at, u.last_login_at,
+             r.name AS role_name,
+             (r.name = 'platform_owner') AS is_platform_owner
         FROM users u
         JOIN roles r ON u.role_id = r.id
-       WHERE r.name IN ('super_admin', 'platform_owner', 'org_admin', 'admin')
+       WHERE r.name IN ('super_admin', 'platform_owner', 'org_admin', 'admin', 'support_admin', 'billing_admin')
        ORDER BY u.created_at DESC
     `);
     return res.json({ success: true, data: { admins: result.rows } });
   } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.patch('/admins/:id/role', async (req, res) => {
+  try {
+    const { role } = req.body;
+    const allowed = ['super_admin', 'support_admin', 'billing_admin', 'org_admin'];
+    if (!allowed.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role.' });
+    }
+    // Prevent changing platform_owner role
+    const check = await db.query(
+      `SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
+      [req.params.id]
+    );
+    if (!check.rows.length) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (check.rows[0].name === 'platform_owner') {
+      return res.status(403).json({ success: false, message: 'Cannot change platform owner role.' });
+    }
+    const roleRow = await db.query(`SELECT id FROM roles WHERE name = $1`, [role]);
+    if (!roleRow.rows.length) return res.status(400).json({ success: false, message: `Role '${role}' not found.` });
+    await db.query(`UPDATE users SET role_id = $1 WHERE id = $2`, [roleRow.rows[0].id, req.params.id]);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /admins — Create a new admin user ──────────────────────────
+router.post('/admins', async (req, res) => {
+  try {
+    const { email, role, fullName } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const allowedRoles = ['super_admin', 'support_admin', 'billing_admin', 'org_admin'];
+    const targetRole = allowedRoles.includes(role) ? role : 'super_admin';
+
+    // Check if user already exists
+    const existing = await db.query(
+      `SELECT id, role_id FROM users WHERE email = $1`,
+      [normalizedEmail]
+    );
+
+    if (existing.rows.length > 0) {
+      // User exists — promote to admin role instead of creating
+      const roleRow = await db.query(`SELECT id FROM roles WHERE name = $1`, [targetRole]);
+      if (!roleRow.rows.length) {
+        return res.status(400).json({ success: false, message: `Role '${targetRole}' not found.` });
+      }
+      await db.query(
+        `UPDATE users SET role_id = $1, updated_at = NOW() WHERE id = $2`,
+        [roleRow.rows[0].id, existing.rows[0].id]
+      );
+      return res.json({
+        success: true,
+        message: 'Existing user promoted to admin.',
+        data: { id: existing.rows[0].id },
+      });
+    }
+
+    // Create new user with a random temporary password
+    const bcrypt = require('bcryptjs');
+    const tempPassword = require('crypto').randomBytes(12).toString('hex');
+    const salt = await bcrypt.genSalt(12);
+    const hash = await bcrypt.hash(tempPassword, salt);
+
+    const roleRow = await db.query(`SELECT id FROM roles WHERE name = $1`, [targetRole]);
+    if (!roleRow.rows.length) {
+      return res.status(400).json({ success: false, message: `Role '${targetRole}' not found.` });
+    }
+
+    const insertResult = await db.query(
+      `INSERT INTO users (email, password_hash, full_name, role_id, is_active, created_at)
+       VALUES ($1, $2, $3, $4, TRUE, NOW())
+       RETURNING id`,
+      [normalizedEmail, hash, fullName || normalizedEmail, roleRow.rows[0].id]
+    );
+
+    logger.info('Admin user created by platform owner', {
+      createdBy: req.user?.id,
+      newAdminId: insertResult.rows[0].id,
+      email: normalizedEmail,
+      role: targetRole,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Admin created. A password reset email should be sent.',
+      data: { id: insertResult.rows[0].id },
+    });
+  } catch (err) {
+    logger.error('Admin creation failed', { error: err.message });
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE /admins/:id — Remove an admin user ──────────────────────
+router.delete('/admins/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent deleting the platform owner
+    const check = await db.query(
+      `SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
+      [id]
+    );
+    if (!check.rows.length) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    if (check.rows[0].name === 'platform_owner') {
+      return res.status(403).json({ success: false, message: 'Cannot remove the platform owner.' });
+    }
+
+    // Demote to a regular user role (or delete — here we demote to keep data integrity)
+    const userRole = await db.query(`SELECT id FROM roles WHERE name = 'user' LIMIT 1`);
+    if (userRole.rows.length > 0) {
+      await db.query(
+        `UPDATE users SET role_id = $1, updated_at = NOW() WHERE id = $2`,
+        [userRole.rows[0].id, id]
+      );
+    } else {
+      // If no 'user' role exists, just delete the user
+      await db.query(`DELETE FROM users WHERE id = $1`, [id]);
+    }
+
+    logger.info('Admin removed by platform owner', {
+      removedBy: req.user?.id,
+      removedUserId: id,
+    });
+
+    return res.json({ success: true, message: 'Admin access removed.' });
+  } catch (err) {
+    logger.error('Admin removal failed', { error: err.message });
     return res.status(500).json({ success: false, message: err.message });
   }
 });

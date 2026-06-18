@@ -39,4 +39,28 @@ const apiLimiter = rateLimit({
   },
 });
 
-module.exports = { loginLimiter, apiLimiter };
+/**
+ * Per-organization API rate limiter.
+ * Limits requests per organization ID to prevent one tenant from DDoS-ing the API.
+ * Falls back to IP if no organization ID is available (e.g., unauthenticated requests).
+ */
+const orgApiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000, // per org per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Organization rate limit exceeded. Please slow down and try again shortly.',
+  },
+  keyGenerator: (req) => {
+    const orgId = req.organizationId || req.user?.organizationId;
+    if (orgId) return `org:${orgId}`;
+    // Fallback to IP for unauthenticated requests
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) return `ip:${forwarded.split(',')[0].trim()}`;
+    return `ip:${req.ip}`;
+  },
+});
+
+module.exports = { loginLimiter, apiLimiter, orgApiLimiter };

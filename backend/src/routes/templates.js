@@ -238,16 +238,16 @@ router.get('/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post('/', requirePermission('templates.manage'), async (req, res) => {
   try {
-    const {
-      brandId,
-      name,
-      subject,
-      bodyHtml,
-      bodyText,
-      category,
-      tags,
-      useSpintax,
-    } = req.body;
+    // Accept BOTH camelCase and snake_case
+    const b = req.body || {};
+    const brandId = b.brandId ?? b.brand_id;
+    const name = b.name;
+    const subject = b.subject;
+    const bodyHtml = b.bodyHtml ?? b.body_html;
+    const bodyText = b.bodyText ?? b.body_text;
+    const category = b.category;
+    const tags = b.tags;
+    const useSpintax = b.useSpintax ?? b.use_spintax;
 
     // Validation
     if (!name || !name.trim()) {
@@ -334,16 +334,16 @@ router.post('/', requirePermission('templates.manage'), async (req, res) => {
 router.put('/:id', requirePermission('templates.manage'), async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      brandId,
-      name,
-      subject,
-      bodyHtml,
-      bodyText,
-      category,
-      tags,
-      useSpintax,
-    } = req.body;
+    // Accept BOTH camelCase and snake_case
+    const b = req.body || {};
+    const brandId = b.brandId ?? b.brand_id;
+    const name = b.name;
+    const subject = b.subject;
+    const bodyHtml = b.bodyHtml ?? b.body_html;
+    const bodyText = b.bodyText ?? b.body_text;
+    const category = b.category;
+    const tags = b.tags;
+    const useSpintax = b.useSpintax ?? b.use_spintax;
 
     // Verify template exists within this organization
     const templateCheck = await db.query(

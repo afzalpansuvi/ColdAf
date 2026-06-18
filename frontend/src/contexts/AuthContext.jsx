@@ -18,27 +18,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = useCallback(async () => {
-    // DEV BYPASS: skip auth and use a fake platform_owner user
-    // (so /admin panel + all other routes are accessible during dev)
-    if (import.meta.env.DEV) {
-      setUser({
-        id: 'dev-admin',
-        name: 'Platform Owner',
-        full_name: 'Platform Owner',
-        email: import.meta.env.VITE_PLATFORM_OWNER_EMAIL,
-        role: 'platform_owner',
-        is_platform_owner: true,
-        permissions: ['*'],
-      });
-      setOrganization({
-        id: 'dev-org',
-        name: 'Dev Organization',
-        slug: 'dev-org',
-        plan: 'agency',
-      });
-      setLoading(false);
-      return;
-    }
     try {
       const data = await api.get('/auth/me');
       const u = data.data;

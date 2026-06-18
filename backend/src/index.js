@@ -6,7 +6,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const env = require('./config/env');
 const logger = require('./utils/logger');
-const { apiLimiter, loginLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, loginLimiter, orgApiLimiter } = require('./middleware/rateLimiter');
 const db = require('./config/database');
 
 // ---------------------------------------------------------------------------
@@ -76,34 +76,34 @@ const adminRoutes = require('./routes/admin');
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/login', loginLimiter);
 
-// Multi-tenant SaaS routes
-app.use('/api/platform', platformRoutes);
-app.use('/api/organizations', organizationsRoutes);
-app.use('/api/billing', billingRoutes);
+// Multi-tenant SaaS routes with org-level rate limiting
+app.use('/api/platform', orgApiLimiter, platformRoutes);
+app.use('/api/organizations', orgApiLimiter, organizationsRoutes);
+app.use('/api/billing', orgApiLimiter, billingRoutes);
 
-app.use('/api/users', usersRoutes);
-app.use('/api/brands', brandsRoutes);
-app.use('/api/smtp', smtpRoutes);
-app.use('/api/smtp', smtpDeliverabilityRoutes);
-app.use('/api/leads', leadsRoutes);
-app.use('/api/campaigns', campaignsRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/ab-tests', abTestsRoutes);
-app.use('/api/replies', repliesRoutes);
-app.use('/api/integrations', integrationsRoutes);
-app.use('/api/webhook', webhookReceiverRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/audit-logs', auditLogsRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/ai/chat', aiChatRoutes);
-app.use('/api/ai/agent', aiAgentRoutes);
-app.use('/api/ai/usage', aiUsageRoutes);
-app.use('/api/templates', templatesRoutes);
-app.use('/api/signatures', signaturesRoutes);
-app.use('/api/phone-calls', phoneCallsRoutes);
-app.use('/api/vapi', vapiWebhookRoutes);
-app.use('/api/gmail/oauth', gmailOAuthRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/users', orgApiLimiter, usersRoutes);
+app.use('/api/brands', orgApiLimiter, brandsRoutes);
+app.use('/api/smtp', orgApiLimiter, smtpRoutes);
+app.use('/api/smtp', orgApiLimiter, smtpDeliverabilityRoutes);
+app.use('/api/leads', orgApiLimiter, leadsRoutes);
+app.use('/api/campaigns', orgApiLimiter, campaignsRoutes);
+app.use('/api/analytics', orgApiLimiter, analyticsRoutes);
+app.use('/api/ab-tests', orgApiLimiter, abTestsRoutes);
+app.use('/api/replies', orgApiLimiter, repliesRoutes);
+app.use('/api/integrations', orgApiLimiter, integrationsRoutes);
+app.use('/api/webhook', orgApiLimiter, webhookReceiverRoutes);
+app.use('/api/settings', orgApiLimiter, settingsRoutes);
+app.use('/api/audit-logs', orgApiLimiter, auditLogsRoutes);
+app.use('/api/notifications', orgApiLimiter, notificationsRoutes);
+app.use('/api/ai/chat', orgApiLimiter, aiChatRoutes);
+app.use('/api/ai/agent', orgApiLimiter, aiAgentRoutes);
+app.use('/api/ai/usage', orgApiLimiter, aiUsageRoutes);
+app.use('/api/templates', orgApiLimiter, templatesRoutes);
+app.use('/api/signatures', orgApiLimiter, signaturesRoutes);
+app.use('/api/phone-calls', orgApiLimiter, phoneCallsRoutes);
+app.use('/api/vapi', orgApiLimiter, vapiWebhookRoutes);
+app.use('/api/gmail/oauth', orgApiLimiter, gmailOAuthRoutes);
+app.use('/api/admin', orgApiLimiter, adminRoutes);
 
 // ---------------------------------------------------------------------------
 // Email Tracking: Open Pixel
@@ -477,8 +477,38 @@ app.post('/api/unsubscribe', loginLimiter, async (req, res) => {
 // ---------------------------------------------------------------------------
 // Health Check
 // ---------------------------------------------------------------------------
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  const checks = {
+    timestamp: new Date().toISOString(),
+  };
+
+  // PostgreSQL
+  try {
+    const dbStart = Date.now();
+    await db.query('SELECT 1');
+    checks.database = { status: 'ok', latencyMs: Date.now() - dbStart };
+  } catch (err) {
+    checks.database = { status: 'down', error: err.message };
+  }
+
+  // Redis
+  try {
+    const redisStart = Date.now();
+    const { emailQueue } = require('./config/redis');
+    await emailQueue.client.ping();
+    checks.redis = { status: 'ok', latencyMs: Date.now() - redisStart };
+  } catch (err) {
+    checks.redis = { status: 'down', error: err.message };
+  }
+
+  // Overall status
+  const allOk = Object.values(checks).every(
+    (c) => typeof c === 'string' || c.status === 'ok'
+  );
+  checks.status = allOk ? 'ok' : 'degraded';
+
+  const statusCode = allOk ? 200 : 503;
+  res.status(statusCode).json(checks);
 });
 
 // ---------------------------------------------------------------------------

@@ -734,6 +734,101 @@ async function runTrialExpiryCheck() {
 }
 
 // ---------------------------------------------------------------------------
+// Gmail OAuth Token Refresh
+// ---------------------------------------------------------------------------
+
+/**
+ * Refreshes expired or near-expired Gmail OAuth tokens for all SMTP accounts.
+ * Runs every 30 minutes to ensure tokens are refreshed before expiry.
+ */
+async function runGmailOAuthRefresh() {
+  try {
+    // Find Gmail OAuth accounts with tokens expiring within the next 2 hours
+    const result = await db.query(
+      `SELECT id, email_address, oauth_refresh_token, oauth_token_expires_at
+       FROM smtp_accounts
+       WHERE provider = 'gmail'
+         AND is_oauth = TRUE
+         AND oauth_refresh_token IS NOT NULL
+         AND (oauth_token_expires_at IS NULL OR oauth_token_expires_at < NOW() + INTERVAL '2 hours')`
+    );
+
+    if (result.rows.length === 0) {
+      logger.debug('Gmail OAuth refresh: no accounts need refresh');
+      return;
+    }
+
+    const { google } = require('googleapis');
+    const OAuth2 = google.auth.OAuth2;
+
+    const clientId = process.env.GMAIL_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      logger.warn('Gmail OAuth refresh skipped: GMAIL_OAUTH_CLIENT_ID or GMAIL_OAUTH_CLIENT_SECRET not set');
+      return;
+    }
+
+    let refreshedCount = 0;
+    let failedCount = 0;
+
+    for (const account of result.rows) {
+      try {
+        const oauth2Client = new OAuth2(clientId, clientSecret);
+        oauth2Client.setCredentials({ refresh_token: account.oauth_refresh_token });
+
+        const { tokens } = await oauth2Client.refreshAccessToken();
+        const newAccessToken = tokens.access_token;
+        const newExpiry = tokens.expiry_date
+          ? new Date(tokens.expiry_date)
+          : new Date(Date.now() + 3600 * 1000); // Default 1 hour
+
+        await db.query(
+          `UPDATE smtp_accounts
+           SET oauth_access_token = $1,
+               oauth_token_expires_at = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [newAccessToken, newExpiry, account.id]
+        );
+
+        refreshedCount++;
+        logger.info('Gmail OAuth token refreshed', {
+          accountId: account.id,
+          email: account.email_address,
+          expiresAt: newExpiry,
+        });
+      } catch (err) {
+        failedCount++;
+        logger.error('Gmail OAuth token refresh failed', {
+          accountId: account.id,
+          email: account.email_address,
+          error: err.message,
+        });
+
+        // Mark account as degraded if refresh fails repeatedly
+        await db.query(
+          `UPDATE smtp_accounts
+           SET health_status = 'degraded',
+               last_health_check_result = $1,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [`OAuth refresh failed: ${err.message}`, account.id]
+        );
+      }
+    }
+
+    logger.info('Gmail OAuth refresh complete', {
+      refreshed: refreshedCount,
+      failed: failedCount,
+      total: result.rows.length,
+    });
+  } catch (err) {
+    logger.error('Gmail OAuth refresh runner failed', { error: err.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Scheduler Initialization
 // ---------------------------------------------------------------------------
 
@@ -838,6 +933,13 @@ async function startScheduler() {
     await runTrialExpiryCheck();
   }, { scheduled: true });
   logger.info('Scheduler: Trial expiry check daily at 06:00');
+
+  // ── (k) Gmail OAuth token refresh - every 30 minutes ─────────────
+  tasks.gmailOAuthRefresh = cron.schedule('*/30 * * * *', async () => {
+    logger.debug('Cron: Gmail OAuth refresh triggered');
+    await runGmailOAuthRefresh();
+  }, { scheduled: true });
+  logger.info('Scheduler: Gmail OAuth refresh every 30m');
 
   logger.info('Scheduler worker initialized successfully');
 

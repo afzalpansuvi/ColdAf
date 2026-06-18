@@ -8,7 +8,9 @@
     "dev": "nodemon src/index.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node seeds/admin.js",
-    "seed:owner": "node seeds/platformOwner.js"
+    "seed:owner": "node seeds/platformOwner.js",
+    "test": "jest --coverage --detectOpenHandles",
+    "test:watch": "jest --watch --detectOpenHandles"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -40,6 +42,8 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.0",
+    "supertest": "^7.0.0"
   }
 }
