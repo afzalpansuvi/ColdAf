@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { findArticleBySlug, fetchArticle, getRelatedArticles, findArticleByFile } from './helpData';
 import { articlesByCategory } from './manifest';
+import { setMeta, setCanonical } from './seo';
 import {
   BookOpen, ArrowLeft, Clock, Hash, Loader2, AlertTriangle, FileText
 } from 'lucide-react';
@@ -71,10 +72,12 @@ export default function HelpArticle() {
       .finally(() => setLoadingContent(false));
   }, [slug]);
 
-  // Update document title
+  // Update document title + SEO meta
   useEffect(() => {
     if (article) {
       document.title = `${article.title} — ColdAF Help`;
+      setMeta('description', `${article.title}. Step-by-step guide for ColdAF Email Tool (${article.category}).`);
+      setCanonical(`https://coldaf.ataflexsolutions.com/help/${article.slug}`);
     } else {
       document.title = 'Help Center — ColdAF';
     }

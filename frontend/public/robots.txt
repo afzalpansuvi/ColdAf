@@ -1,0 +1,11 @@
+# ColdAF Email Tool — robots
+# Public help/guides are open to crawlers; the authenticated app is not useful to index.
+
+User-agent: *
+Allow: /help
+Allow: /help-docs
+Disallow: /admin
+Disallow: /account
+Disallow: /org
+
+Sitemap: https://coldaf.ataflexsolutions.com/sitemap.xml

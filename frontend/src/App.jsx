@@ -51,6 +51,7 @@ import SecurityAudit from './pages/admin/SecurityAudit';
 import RequestsIssues from './pages/admin/RequestsIssues';
 import HelpCenter from './pages/help/HelpCenter';
 import HelpArticle from './pages/help/HelpArticle';
+import PublicHelpLayout from './pages/help/PublicHelpLayout';
 
 function AdminRoute({ children }) {
   const { isAdmin } = useAuth();
@@ -99,6 +100,13 @@ export default function App() {
           <Route path="/pending-approval" element={<PendingApproval />} />
           <Route path="/invite/:token" element={<AcceptInvite />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
+
+          {/* Help Center — public, no login required (SEO-indexable) */}
+          <Route element={<PublicHelpLayout />}>
+            <Route path="/help" element={<HelpCenter />} />
+            <Route path="/help/:slug" element={<HelpArticle />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </ErrorBoundary>

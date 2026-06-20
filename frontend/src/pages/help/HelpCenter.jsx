@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { categories, articlesByCategory } from './manifest';
 import { searchArticles } from './helpData';
+import { setMeta, setCanonical } from './seo';
 import {
   Search, BookOpen, ArrowRight, HelpCircle, X, Hash, Clock
 } from 'lucide-react';
@@ -21,9 +22,11 @@ export default function HelpCenter() {
   const [searchFocused, setSearchFocused] = useState(false);
   const navigate = useNavigate();
 
-  // Update document title
+  // Update document title + SEO meta
   useEffect(() => {
-    document.title = 'Help Center — ColdAF';
+    document.title = 'Help Center — ColdAF Email Tool';
+    setMeta('description', 'ColdAF Email Tool guides and how-tos: SMTP setup, campaigns, lead import, email warmup, deliverability, AI generation, integrations, and more.');
+    setCanonical('https://coldaf.ataflexsolutions.com/help');
   }, []);
 
   const searchResults = useMemo(() => searchArticles(query), [query]);
