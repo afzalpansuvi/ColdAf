@@ -166,9 +166,9 @@ ALTER TABLE ab_tests ADD COLUMN IF NOT EXISTS confidence_threshold DECIMAL(3,2) 
   CHECK (confidence_threshold BETWEEN 0.50 AND 0.999);
 ALTER TABLE ab_tests ADD COLUMN IF NOT EXISTS traffic_allocation JSONB DEFAULT '{}'; -- { variant_id: percentage }
 
-ALTER TABLE ab_test_variants ADD COLUMN IF NOT EXISTS current_traffic_share DECIMAL(5,2) NOT NULL DEFAULT 100.00
+ALTER TABLE ab_variants ADD COLUMN IF NOT EXISTS current_traffic_share DECIMAL(5,2) NOT NULL DEFAULT 100.00
   CHECK (current_traffic_share BETWEEN 0.00 AND 100.00);
-ALTER TABLE ab_test_variants ADD COLUMN IF NOT EXISTS is_winner BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE ab_variants ADD COLUMN IF NOT EXISTS is_winner BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- ---------------------------------------------------------------------------
 -- 6. Deliverability Advisor Scores (per-organization, per-day)
