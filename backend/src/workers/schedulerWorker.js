@@ -913,6 +913,28 @@ async function startScheduler() {
   }, { scheduled: true });
   logger.info('Scheduler: Warmup progression daily at 00:05');
 
+  // ── (g2) Warmup email batch - every 10 minutes ─────────────────────
+  const warmupService = require('../services/warmupService');
+  tasks.warmupBatch = cron.schedule('*/10 * * * *', async () => {
+    logger.debug('Cron: Warmup email batch triggered');
+    await warmupService.processWarmupBatch();
+  }, { scheduled: true });
+  logger.info('Scheduler: Warmup email batch every 10m');
+
+  // ── (g3) Warmup engagement simulation - every 15 minutes ───────────
+  tasks.warmupEngagement = cron.schedule('*/15 * * * *', async () => {
+    logger.debug('Cron: Warmup engagement simulation triggered');
+    await warmupService.simulateEngagement();
+  }, { scheduled: true });
+  logger.info('Scheduler: Warmup engagement simulation every 15m');
+
+  // ── (g4) Warmup daily ramp advance - midnight at 00:03 ────────────
+  tasks.warmupRamp = cron.schedule('3 0 * * *', async () => {
+    logger.debug('Cron: Warmup daily ramp advance triggered');
+    await warmupService.advanceDailyRamp();
+  }, { scheduled: true });
+  logger.info('Scheduler: Warmup daily ramp advance at 00:03');
+
   // ── (h) Blacklist checks - every 12 hours ──────────────────────────
   tasks.blacklistCheck = cron.schedule('0 */12 * * *', async () => {
     logger.debug('Cron: Blacklist check triggered');
@@ -940,6 +962,14 @@ async function startScheduler() {
     await runGmailOAuthRefresh();
   }, { scheduled: true });
   logger.info('Scheduler: Gmail OAuth refresh every 30m');
+
+  // ── (l) Scheduled reports - every 15 minutes ───────────────────────
+  const scheduledReportService = require('../services/scheduledReportService');
+  tasks.scheduledReports = cron.schedule('*/15 * * * *', async () => {
+    logger.debug('Cron: Scheduled reports processing triggered');
+    await scheduledReportService.processDueReports();
+  }, { scheduled: true });
+  logger.info('Scheduler: Scheduled reports every 15m');
 
   logger.info('Scheduler worker initialized successfully');
 

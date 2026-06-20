@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   Search,
   ChevronRight,
+  HelpCircle,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ const growNav = [
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/templates', icon: FileText, label: 'Templates' },
   { to: '/ai-chat', icon: Sparkles, label: 'AI Assistant', adminOnly: true },
+  { to: '/help', icon: HelpCircle, label: 'Help' },
 ];
 
 const setupNav = [
@@ -105,6 +107,7 @@ const pageTitles = {
   '/phone-calls': 'Phone Calls',
   '/templates': 'Templates',
   '/org': 'Organization',
+  '/help': 'Help Center',
   '/platform': 'Platform Admin',
   '/org/billing': 'Billing & Plans',
   '/org/settings': 'Organization',
@@ -186,6 +189,7 @@ export default function Layout() {
     (location.pathname.startsWith('/campaigns/') ? 'Campaign'
       : location.pathname.startsWith('/leads/') ? 'Lead'
       : location.pathname.startsWith('/org/') ? 'Organization'
+      : location.pathname.startsWith('/help/') ? 'Help Article'
       : 'Dashboard');
 
   useEffect(() => { setSidebarOpen(false); setUserMenuOpen(false); }, [location.pathname]);

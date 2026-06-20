@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, requireAdmin } = require('../middleware/rbac');
 const { validateBody, sanitizeBody } = require('../middleware/validation');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { createNotification } = require('../services/notifications');
@@ -14,7 +14,7 @@ const router = express.Router();
 // All SMTP routes require authentication + admin role
 router.use(authenticate);
 router.use(tenantScope);
-router.use(requireRole('admin'));
+router.use(requireAdmin);
 
 // Masked placeholder used for password fields in responses and update detection
 const MASKED_VALUE = '*****';

@@ -71,6 +71,11 @@ const organizationsRoutes = require('./routes/organizations');
 const billingRoutes = require('./routes/billing');
 const gmailOAuthRoutes = require('./routes/gmailOAuth');
 const adminRoutes = require('./routes/admin');
+const warmupRoutes = require('./routes/warmup');
+const hubspotRoutes = require('./routes/hubspot');
+const trackingDomainsRoutes = require('./routes/trackingDomains');
+const scheduledReportsRoutes = require('./routes/scheduledReports');
+const clientAnalyticsRoutes = require('./routes/clientAnalytics');
 
 // Auth routes with login-specific rate limiter
 app.use('/api/auth', authRoutes);
@@ -91,6 +96,7 @@ app.use('/api/analytics', orgApiLimiter, analyticsRoutes);
 app.use('/api/ab-tests', orgApiLimiter, abTestsRoutes);
 app.use('/api/replies', orgApiLimiter, repliesRoutes);
 app.use('/api/integrations', orgApiLimiter, integrationsRoutes);
+app.use('/api/integrations/hubspot', orgApiLimiter, hubspotRoutes);
 app.use('/api/webhook', orgApiLimiter, webhookReceiverRoutes);
 app.use('/api/settings', orgApiLimiter, settingsRoutes);
 app.use('/api/audit-logs', orgApiLimiter, auditLogsRoutes);
@@ -104,6 +110,10 @@ app.use('/api/phone-calls', orgApiLimiter, phoneCallsRoutes);
 app.use('/api/vapi', orgApiLimiter, vapiWebhookRoutes);
 app.use('/api/gmail/oauth', orgApiLimiter, gmailOAuthRoutes);
 app.use('/api/admin', orgApiLimiter, adminRoutes);
+app.use('/api/warmup', orgApiLimiter, warmupRoutes);
+app.use('/api/tracking-domains', orgApiLimiter, trackingDomainsRoutes);
+app.use('/api/reports/scheduled', orgApiLimiter, scheduledReportsRoutes);
+app.use('/api/analytics/client', orgApiLimiter, clientAnalyticsRoutes);
 
 // ---------------------------------------------------------------------------
 // Email Tracking: Open Pixel

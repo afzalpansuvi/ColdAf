@@ -4,7 +4,7 @@
  * phoneCalls.js — REST API routes for the Vapi phone call agent.
  *
  * All routes require authentication. Admin-only routes are marked with
- * requireRole('admin').
+ * requireAdmin.
  *
  * Endpoints:
  *   GET  /api/phone-calls              — List calls
@@ -22,7 +22,7 @@ const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
-const { requireRole, requirePermission } = require('../middleware/rbac');
+const { requireRole, requirePermission, requireAdmin } = require('../middleware/rbac');
 const audit = require('../services/audit');
 const {
   processDiscordLeads,
@@ -64,7 +64,7 @@ router.get('/agent/status', authenticate, tenantScope, requirePermission('phone_
 // ---------------------------------------------------------------------------
 // PUT /agent/settings — update agent settings
 // ---------------------------------------------------------------------------
-router.put('/agent/settings', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.put('/agent/settings', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     const allowedKeys = [
       'vapi_call_enabled',
@@ -116,7 +116,7 @@ router.put('/agent/settings', authenticate, tenantScope, requireRole('admin'), a
 // ---------------------------------------------------------------------------
 // POST /trigger — manually trigger the agent scan for Discord leads
 // ---------------------------------------------------------------------------
-router.post('/trigger', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.post('/trigger', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     logger.info('Manual Vapi agent trigger', { triggeredBy: req.user.email });
 
@@ -145,7 +145,7 @@ router.post('/trigger', authenticate, tenantScope, requireRole('admin'), async (
 // ---------------------------------------------------------------------------
 // POST /sync — sync in-flight call statuses from Vapi
 // ---------------------------------------------------------------------------
-router.post('/sync', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.post('/sync', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     const result = await runCallResultSync();
     return res.json({ success: true, data: result });
@@ -341,7 +341,7 @@ router.get('/agent/call-script', authenticate, tenantScope, requirePermission('p
 // ---------------------------------------------------------------------------
 // PUT /agent/call-script — update call script settings
 // ---------------------------------------------------------------------------
-router.put('/agent/call-script', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.put('/agent/call-script', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     const allowedKeys = ['vapi_custom_first_message', 'vapi_system_prompt', 'vapi_knowledge_enabled'];
     const updates = [];
@@ -408,7 +408,7 @@ router.get('/knowledge', authenticate, tenantScope, requireOrg, requirePermissio
 // ---------------------------------------------------------------------------
 // POST /knowledge — create a knowledge entry
 // ---------------------------------------------------------------------------
-router.post('/knowledge', authenticate, tenantScope, requireOrg, requireRole('admin'), async (req, res) => {
+router.post('/knowledge', authenticate, tenantScope, requireOrg, requireAdmin, async (req, res) => {
   try {
     const { title, content, is_active = true, sort_order = 0 } = req.body;
 
@@ -448,7 +448,7 @@ router.post('/knowledge', authenticate, tenantScope, requireOrg, requireRole('ad
 // ---------------------------------------------------------------------------
 // PUT /knowledge/:id — update a knowledge entry
 // ---------------------------------------------------------------------------
-router.put('/knowledge/:id', authenticate, tenantScope, requireOrg, requireRole('admin'), async (req, res) => {
+router.put('/knowledge/:id', authenticate, tenantScope, requireOrg, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, content, is_active, sort_order } = req.body;
@@ -504,7 +504,7 @@ router.put('/knowledge/:id', authenticate, tenantScope, requireOrg, requireRole(
 // ---------------------------------------------------------------------------
 // DELETE /knowledge/:id — delete a knowledge entry
 // ---------------------------------------------------------------------------
-router.delete('/knowledge/:id', authenticate, tenantScope, requireOrg, requireRole('admin'), async (req, res) => {
+router.delete('/knowledge/:id', authenticate, tenantScope, requireOrg, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 

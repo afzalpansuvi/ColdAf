@@ -5,7 +5,7 @@ const { Readable } = require('stream');
 const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, requireAdmin } = require('../middleware/rbac');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const audit = require('../services/audit');
 const { isValidEmail } = require('../utils/validators');
@@ -344,7 +344,7 @@ router.get('/:id', authenticate, tenantScope, async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST / - Create single lead manually (admin only)
 // ---------------------------------------------------------------------------
-router.post('/', authenticate, tenantScope, sanitizeBody, requireRole('admin'), async (req, res) => {
+router.post('/', authenticate, tenantScope, sanitizeBody, requireAdmin, async (req, res) => {
   try {
     // Accept BOTH camelCase (frontend) and snake_case (legacy) keys
     const b = req.body || {};
@@ -468,7 +468,7 @@ router.post('/', authenticate, tenantScope, sanitizeBody, requireRole('admin'), 
 // ---------------------------------------------------------------------------
 // PUT /:id - Update lead fields (admin only)
 // ---------------------------------------------------------------------------
-router.put('/:id', authenticate, tenantScope, sanitizeBody, requireRole('admin'), async (req, res) => {
+router.put('/:id', authenticate, tenantScope, sanitizeBody, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -601,7 +601,7 @@ router.put('/:id', authenticate, tenantScope, sanitizeBody, requireRole('admin')
 // ---------------------------------------------------------------------------
 // POST /import-csv - CSV lead import with preview and confirm (admin only)
 // ---------------------------------------------------------------------------
-router.post('/import-csv', authenticate, tenantScope, requireRole('admin'), (req, res, next) => {
+router.post('/import-csv', authenticate, tenantScope, requireAdmin, (req, res, next) => {
   csvUpload.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -855,7 +855,7 @@ router.post('/unsubscribe/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 // DELETE /:id - Hard delete lead (admin only)
 // ---------------------------------------------------------------------------
-router.delete('/:id', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.delete('/:id', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -907,7 +907,7 @@ router.delete('/:id', authenticate, tenantScope, requireRole('admin'), async (re
 // ---------------------------------------------------------------------------
 // POST /bulk-action - Bulk operations on leads (admin only)
 // ---------------------------------------------------------------------------
-router.post('/bulk-action', authenticate, tenantScope, requireRole('admin'), async (req, res) => {
+router.post('/bulk-action', authenticate, tenantScope, requireAdmin, async (req, res) => {
   try {
     const { leadIds, action, status } = req.body;
 

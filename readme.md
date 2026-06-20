@@ -60,12 +60,45 @@ This section documents the production hardening work completed across all phases
 - **Real-time analytics** — Funnel charts, timelines, heatmaps, A/B comparisons, date range comparison
 - **AI monitoring agent** — Periodic health checks with automated alerting and campaign control
 - **Phone call agent** — Automated outbound AI calls via Vapi.ai with custom call scripts, knowledge base, transcripts, recordings, and summaries
+- **Warmup system** — Pool-based email warmup with daily ramp, AI content, and engagement simulation
+- **HubSpot native sync** — Bidirectional contact sync with OAuth2 and activity logging
+- **Scheduled white-label reports** — Automated PDF/CSV reports with client branding and email delivery
+- **Custom tracking domains** — Per-brand custom domains for open/click tracking
+- **AI reply agent** — Auto-generates context-aware reply drafts for lead responses
+- **A/B test auto-optimize** — Auto-selects winning variants based on statistical significance
+- **Voice-triggered sequences** — Trigger email sequences from voice commands
+- **AI deliverability advisor** — Scores sending health and suggests fixes
+- **Per-client analytics API** — JSON analytics endpoint for agency white-label portals
 - **Admin AI chat** — Natural language interface to modify brand prompts and campaign settings
 - **Role-based access** — 8 roles: user, admin, org_admin, sales, viewer, super_admin, support_admin, billing_admin, platform_owner
 - **Audit logging** — Every action logged with actor, timestamp, and metadata
 - **Deliverability** — Rate limiting, randomized delays, unsubscribe handling, List-Unsubscribe headers
 - **Webhook integrations** — Inbound webhooks for lead intake with auto-generated URLs + outbound webhooks for event notifications
-- **Billing** — Stripe subscription billing with 4 plan tiers (free, starter, pro, agency)
+- **Billing** — Stripe subscription billing with 8 plan tiers (Free, Trial, Solo, Starter, Pro, Scale, Agency, Enterprise)
+
+## Competitive Research Implementation (New Features)
+
+Based on competitive analysis vs Instantly.ai, Smartlead.ai, and Saleshandy, the following features were implemented to achieve feature parity and differentiation:
+
+### TABLE-STAKES (Must-Have to Compete)
+1. **Warmup System** — Pool-based email warmup with AI-powered content, daily ramp, and engagement simulation. Routes: `GET/POST/PUT/DELETE /api/warmup/campaigns`, `POST /api/warmup/campaigns/:id/start|pause`
+2. **HubSpot Native Sync** — Bidirectional contact sync, OAuth2 connection, activity logging. Routes: `GET/POST/DELETE /api/integrations/hubspot/connections`, `POST /api/integrations/hubspot/sync/:id`
+3. **Scheduled White-Label Reports** — Automated PDF/CSV reports with client branding, email delivery, and flexible schedules. Routes: `GET/POST/PUT/DELETE /api/reports/scheduled`, `GET /api/reports/scheduled/:id/preview`
+4. **Custom Tracking Domains** — Per-brand custom domains for open/click tracking. Routes: `GET/POST/DELETE /api/tracking-domains`, `POST /api/tracking-domains/:id/verify|set-default|ssl-check`
+
+### DIFFERENTIATORS (Features Others Don't Have)
+5. **AI Reply Agent** — Auto-generates context-aware reply drafts for lead responses. Tables: `ai_reply_drafts`, `ai_reply_agent_settings`
+6. **A/B Test Auto-Optimize** — Auto-selects winning variants based on statistical significance. Added `auto_optimize_enabled`, `winner_selection_method`, `traffic_allocation` to `ab_tests` table.
+7. **Per-Client Analytics API** — JSON analytics endpoint for agency white-label portals. Routes: `GET /api/analytics/client-dashboard`, `GET /api/analytics/client-dashboard/widget` (HTML embed)
+
+### WHITESPACE (Unique Features Nobody Has)
+8. **Voice-Triggered Sequences** — Trigger email sequences from voice commands ("Warm up Acme Corp"). Tables: `voice_trigger_rules`, `voice_trigger_executions`
+9. **AI Deliverability Advisor** — Scores sending health and suggests fixes. Table: `deliverability_scores`
+
+### What We Do NOT Build (Strategic Decisions)
+- ❌ **Built-in B2B lead database** — Use Clay/Apollo instead. Not a data company.
+- ❌ **Native LinkedIn automation** — Compliance liability. Use LinkedIn APIs or integrate with LinkedIn tools.
+- ❌ **Native CRM** — Integrate with HubSpot/Salesforce instead. CRM is not our core competency.
 
 ## Project File Structure
 
@@ -77,7 +110,7 @@ backend/
       env.js             — Environment variable loader
       redis.js           — Redis connection for Bull queues
     db/
-      migrations/         — 11 schema migrations (001-011)
+      migrations/         — 14 schema migrations (001-014)
       migrate.js          — Migration runner with advisory lock
     middleware/
       auth.js            — JWT authentication
@@ -85,7 +118,7 @@ backend/
       rbac.js            — Role-based access control
       tenantScope.js      — Multi-tenant organization scoping
       validation.js       — Reusable input validation middleware
-    routes/               — 28 route files
+    routes/               — 33+ route files
     services/             — Business logic (email, AI, tracking, billing, etc.)
     services/agents/      — Multi-agent AI system (CEO, cold email, cold calling)
     workers/              — schedulerWorker, emailWorker, sequenceProcessor
@@ -225,7 +258,7 @@ This checks:
 ### Database
 - [ ] PostgreSQL 16+ is running
 - [ ] `coldaf_db` database exists
-- [ ] All 11 migrations are applied (`node src/db/migrate.js`)
+- [ ] All 14 migrations are applied (`node src/db/migrate.js`)
 - [ ] `roles` table has: user, admin, org_admin, super_admin, platform_owner
 - [ ] Admin seed ran successfully (`node seeds/admin.js`)
 - [ ] Default organization created with owner assigned
@@ -292,6 +325,32 @@ This checks:
 - [ ] Call script settings save
 - [ ] Knowledge base entries save
 - [ ] Agent status endpoint works
+
+### Warmup (New)
+- [ ] Warmup pool has at least 10 accounts
+- [ ] Warmup campaign sends daily emails
+- [ ] Engagement simulation runs (opens/replies)
+- [ ] Daily ramp advances volume correctly
+
+### HubSpot Sync (New)
+- [ ] HubSpot OAuth connection works
+- [ ] Contact sync pulls/pushes correctly
+- [ ] Sync logs show successful runs
+
+### Tracking Domains (New)
+- [ ] Custom domain DNS records configured
+- [ ] Domain verification passes
+- [ ] Tracking pixel loads from custom domain
+
+### Scheduled Reports (New)
+- [ ] Report generates with correct data
+- [ ] Email delivery succeeds
+- [ ] Delivery logs show sent status
+
+### Client Analytics (New)
+- [ ] `/api/analytics/client-dashboard` returns JSON
+- [ ] Widget embed loads in iframe
+- [ ] Data matches actual campaign performance
 
 ## API Endpoints
 
@@ -367,6 +426,45 @@ This checks:
 - `POST /api/ab-tests` — Create test
 - `PUT /api/ab-tests/:id/winner` — Declare winner
 
+### Warmup
+- `GET /api/warmup/campaigns` — List warmup campaigns
+- `POST /api/warmup/campaigns` — Create warmup campaign
+- `GET /api/warmup/campaigns/:id` — Get campaign detail
+- `PUT /api/warmup/campaigns/:id` — Update campaign
+- `DELETE /api/warmup/campaigns/:id` — Delete campaign
+- `POST /api/warmup/campaigns/:id/start` — Start campaign
+- `POST /api/warmup/campaigns/:id/pause` — Pause campaign
+- `GET /api/warmup/campaigns/:id/stats` — Campaign stats
+- `GET /api/warmup/pools` — List warmup pools
+- `POST /api/warmup/pools` — Create pool
+- `GET /api/warmup/pools/:id/accounts` — List pool accounts
+- `POST /api/warmup/pools/:id/accounts` — Add pool account
+- `DELETE /api/warmup/pools/:id/accounts/:accountId` — Remove pool account
+- `GET /api/warmup/daily-logs` — Daily warmup logs
+
+### Tracking Domains
+- `GET /api/tracking-domains` — List tracking domains
+- `POST /api/tracking-domains` — Add tracking domain
+- `POST /api/tracking-domains/:id/verify` — Verify domain DNS
+- `POST /api/tracking-domains/:id/set-default` — Set as default
+- `POST /api/tracking-domains/:id/ssl-check` — Check SSL status
+- `DELETE /api/tracking-domains/:id` — Remove domain
+
+### Scheduled Reports
+- `GET /api/reports/scheduled` — List scheduled reports
+- `POST /api/reports/scheduled` — Create scheduled report
+- `GET /api/reports/scheduled/:id` — Get report detail
+- `PUT /api/reports/scheduled/:id` — Update report
+- `DELETE /api/reports/scheduled/:id` — Delete report
+- `POST /api/reports/scheduled/:id/toggle` — Toggle active/inactive
+- `POST /api/reports/scheduled/:id/send-now` — Send report now
+- `GET /api/reports/scheduled/:id/preview` — Preview report data
+- `GET /api/reports/scheduled/:id/delivery-logs` — View delivery history
+
+### Client Analytics (Agency/White-Label)
+- `GET /api/analytics/client-dashboard` — JSON analytics for client dashboards
+- `GET /api/analytics/client-dashboard/widget` — HTML embed widget (iframe-ready)
+
 ### Integrations (Admin)
 - `GET /api/integrations/sheets` — Google Sheet connections
 - `POST /api/integrations/sheets` — Add sheet connection
@@ -374,6 +472,12 @@ This checks:
 - `DELETE /api/integrations/sheets/:id` — Remove connection
 - `POST /api/integrations/sheets/:id/test` — Test connection
 - `POST /api/integrations/sheets/:id/sync` — Sync now
+- `GET /api/integrations/hubspot/connections` — HubSpot connections
+- `POST /api/integrations/hubspot/connections` — Connect HubSpot
+- `POST /api/integrations/hubspot/connections/:id/test` — Test connection
+- `DELETE /api/integrations/hubspot/connections/:id` — Disconnect
+- `POST /api/integrations/hubspot/sync/:id` — Trigger sync
+- `GET /api/integrations/hubspot/sync/:id/logs` — Sync logs
 - `GET /api/integrations/webhooks` — Webhook sources
 - `POST /api/integrations/webhooks` — Create webhook
 - `PUT /api/integrations/webhooks/:id` — Update webhook
@@ -554,6 +658,21 @@ Every SaaS route filters by `organization_id` from the JWT. The `tenantScope` mi
 | `refresh_tokens` | JWT refresh token storage |
 | `ai_agent_logs` | AI agent execution history |
 | `ai_chat_messages` | AI chat conversation history |
+| `warmup_campaigns` | Email warmup campaigns with daily ramp |
+| `warmup_emails` | Individual warmup emails sent/received |
+| `warmup_pools` | Warmup account pools |
+| `warmup_pool_accounts` | Accounts in warmup pools |
+| `warmup_daily_logs` | Daily warmup statistics |
+| `hubspot_connections` | HubSpot OAuth2 connections |
+| `hubspot_sync_logs` | HubSpot sync run history |
+| `tracking_domains` | Custom tracking domains per brand |
+| `scheduled_reports` | Automated report configurations |
+| `report_delivery_logs` | Report delivery history |
+| `ai_reply_drafts` | AI-generated reply drafts |
+| `ai_reply_agent_settings` | AI reply agent configuration |
+| `voice_trigger_rules` | Voice command trigger rules |
+| `voice_trigger_executions` | Voice trigger execution history |
+| `deliverability_scores` | Per-account deliverability scores |
 | `_migrations` | Migration tracking |
 
 ## Development (without Docker)

@@ -61,6 +61,16 @@ function tenantScope(req, res, next) {
  */
 function requireOrg(req, res, next) {
   if (!req.organizationId) {
+    const role = req.user?.role;
+    const perms = req.user?.permissions || [];
+    const isPlatformLevel = role === 'platform_owner' || role === 'super_admin';
+    const hasWildcard = perms.includes('*') || perms.includes('*.*');
+
+    // Platform owner and super_admin can bypass org requirement
+    if (isPlatformLevel || hasWildcard) {
+      return next();
+    }
+
     return res.status(400).json({
       success: false,
       message: 'An organization context is required for this endpoint. Provide X-Org-Id header.',

@@ -74,4 +74,13 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requirePermission, requireRole };
+/**
+ * Admin-level access — allows admin, org_admin, super_admin, and platform_owner.
+ * Use this instead of requireRole('admin') for routes that any admin should access.
+ */
+const ADMIN_ROLES = ['admin', 'org_admin', 'super_admin', 'platform_owner'];
+function requireAdmin(req, res, next) {
+  return requireRole(...ADMIN_ROLES)(req, res, next);
+}
+
+module.exports = { requirePermission, requireRole, requireAdmin };

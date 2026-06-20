@@ -49,6 +49,8 @@ import ContentManagement from './pages/admin/ContentManagement';
 import AdminAIUsage from './pages/admin/AdminAIUsage';
 import SecurityAudit from './pages/admin/SecurityAudit';
 import RequestsIssues from './pages/admin/RequestsIssues';
+import HelpCenter from './pages/help/HelpCenter';
+import HelpArticle from './pages/help/HelpArticle';
 
 function AdminRoute({ children }) {
   const { isAdmin } = useAuth();
@@ -63,8 +65,8 @@ function PermissionRoute({ permission, children }) {
 }
 
 function PlatformOwnerRoute({ children }) {
-  const { isPlatformOwner } = useAuth();
-  if (!isPlatformOwner) return <Navigate to="/" replace />;
+  const { isPlatformOwner, isSuperAdmin, hasPermission } = useAuth();
+  if (!isPlatformOwner && !isSuperAdmin && !hasPermission('*')) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -164,6 +166,10 @@ export default function App() {
         {/* Organization management routes */}
         <Route path="org/settings" element={<OrgAdminRoute><OrganizationSettings /></OrgAdminRoute>} />
         <Route path="org/billing" element={<OrgAdminRoute><BillingDashboard /></OrgAdminRoute>} />
+
+        {/* Help Center — accessible to all authenticated users */}
+        <Route path="help" element={<HelpCenter />} />
+        <Route path="help/:slug" element={<HelpArticle />} />
 
         {/* Platform Owner routes */}
         <Route path="platform" element={<PlatformOwnerRoute><PlatformDashboard /></PlatformOwnerRoute>} />

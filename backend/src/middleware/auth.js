@@ -9,7 +9,14 @@ const logger = require('../utils/logger');
  */
 function authenticate(req, res, next) {
   try {
-    const token = req.cookies && req.cookies.access_token;
+    // Read token from cookie OR Authorization header (Bearer <token>)
+    let token = req.cookies && req.cookies.access_token;
+    if (!token) {
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.slice(7);
+      }
+    }
 
     if (!token) {
       return res.status(401).json({

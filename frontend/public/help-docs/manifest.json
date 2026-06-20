@@ -1,0 +1,461 @@
+{
+  "version": "1.0.0",
+  "totalArticles": 65,
+  "articles": [
+    {
+      "id": 101,
+      "title": "How to Set Up Your SMTP Account in ColdAF Email Tool",
+      "slug": "how-to-set-up-your-smtp-account-in-coldaf-email-tool",
+      "file": "01-smtp-setup.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 102,
+      "title": "How to Create a Cold Email Campaign in ColdAF",
+      "slug": "how-to-create-a-cold-email-campaign-in-coldaf",
+      "file": "02-create-campaign.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 103,
+      "title": "How to Import Leads from CSV or Google Sheets into ColdAF",
+      "slug": "how-to-import-leads-from-csv-or-google-sheets-into-coldaf",
+      "file": "03-import-leads.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 104,
+      "title": "How to Warm Up Your Email Address in ColdAF",
+      "slug": "how-to-warm-up-your-email-address-in-coldaf",
+      "file": "04-warmup.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 105,
+      "title": "How to Connect Gmail to ColdAF Using OAuth",
+      "slug": "how-to-connect-gmail-to-coldaf-using-oauth",
+      "file": "05-gmail-oauth.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 106,
+      "title": "How to Set Up A/B Testing for Cold Emails in ColdAF",
+      "slug": "how-to-set-up-ab-testing-for-cold-emails-in-coldaf",
+      "file": "06-ab-testing.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 107,
+      "title": "How to Track and Reply to Inbound Emails in ColdAF",
+      "slug": "how-to-track-and-reply-to-inbound-emails-in-coldaf",
+      "file": "07-reply-tracking.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 108,
+      "title": "How to Create Follow-Up Sequences in ColdAF",
+      "slug": "how-to-create-follow-up-sequences-in-coldaf",
+      "file": "08-sequences.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 109,
+      "title": "How to Add Custom Tracking Domains in ColdAF",
+      "slug": "how-to-add-custom-tracking-domains-in-coldaf",
+      "file": "09-tracking-domains.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 110,
+      "title": "How to Use AI to Generate Cold Emails in ColdAF",
+      "slug": "how-to-use-ai-to-generate-cold-emails-in-coldaf",
+      "file": "10-ai-generation.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 111,
+      "title": "How to Manage Multiple Brands in ColdAF",
+      "slug": "how-to-manage-multiple-brands-in-coldaf",
+      "file": "11-multi-brand.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 112,
+      "title": "How to Connect HubSpot to ColdAF for Contact Sync",
+      "slug": "how-to-connect-hubspot-to-coldaf-for-contact-sync",
+      "file": "12-hubspot-integration.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 113,
+      "title": "How to Schedule White-Label Reports in ColdAF",
+      "slug": "how-to-schedule-white-label-reports-in-coldaf",
+      "file": "13-white-label-reports.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 114,
+      "title": "How to Monitor Email Deliverability in ColdAF",
+      "slug": "how-to-monitor-email-deliverability-in-coldaf",
+      "file": "14-deliverability.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 115,
+      "title": "How to Get Started with the ColdAF Dashboard",
+      "slug": "how-to-get-started-with-the-coldaf-dashboard",
+      "file": "15-dashboard.md",
+      "category": "Getting Started"
+    },
+    {
+      "id": 116,
+      "title": "How to Create a Brand in ColdAF",
+      "slug": "how-to-create-a-brand-in-coldaf",
+      "file": "116-create-brand.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 117,
+      "title": "How to Edit or Update a Brand in ColdAF",
+      "slug": "how-to-edit-or-update-a-brand-in-coldaf",
+      "file": "117-edit-brand.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 118,
+      "title": "How to Set a Custom AI Prompt for Your Brand",
+      "slug": "how-to-set-a-custom-ai-prompt-for-your-brand",
+      "file": "118-set-brand-ai-prompt.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 119,
+      "title": "How to Create an Email Signature for Your Brand",
+      "slug": "how-to-create-an-email-signature-for-your-brand",
+      "file": "119-create-email-signature.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 120,
+      "title": "How to Add an SMTP Account in ColdAF",
+      "slug": "how-to-add-an-smtp-account-in-coldaf",
+      "file": "120-add-smtp-account.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 121,
+      "title": "How to Test Your SMTP Connection in ColdAF",
+      "slug": "how-to-test-your-smtp-connection-in-coldaf",
+      "file": "121-test-smtp-connection.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 122,
+      "title": "How to Configure SendGrid in ColdAF",
+      "slug": "how-to-configure-sendgrid-in-coldaf",
+      "file": "122-configure-sendgrid.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 123,
+      "title": "How to Configure Mailgun in ColdAF",
+      "slug": "how-to-configure-mailgun-in-coldaf",
+      "file": "123-configure-mailgun.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 124,
+      "title": "How to Set Daily Send Limits for Your Accounts",
+      "slug": "how-to-set-daily-send-limits-for-your-accounts",
+      "file": "124-set-daily-send-limits.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 125,
+      "title": "How to Monitor SMTP Health in ColdAF",
+      "slug": "how-to-monitor-smtp-health-in-coldaf",
+      "file": "125-monitor-smtp-health.md",
+      "category": "Brands & Infrastructure"
+    },
+    {
+      "id": 126,
+      "title": "How to Connect Gmail via OAuth in ColdAF",
+      "slug": "how-to-connect-gmail-via-oauth-in-coldaf",
+      "file": "126-connect-gmail-oauth.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 127,
+      "title": "How to Reconnect a Degraded SMTP Account",
+      "slug": "how-to-reconnect-a-degraded-smtp-account",
+      "file": "127-reconnect-degraded-smtp.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 128,
+      "title": "How to Disconnect a Gmail Account from ColdAF",
+      "slug": "how-to-disconnect-a-gmail-account-from-coldaf",
+      "file": "128-disconnect-gmail.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 129,
+      "title": "How to Understand Blacklist Checks in ColdAF",
+      "slug": "how-to-understand-blacklist-checks-in-coldaf",
+      "file": "129-understand-blacklist-checks.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 130,
+      "title": "How to Troubleshoot SMTP Errors in ColdAF",
+      "slug": "how-to-troubleshoot-smtp-errors-in-coldaf",
+      "file": "130-troubleshoot-smtp-errors.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 131,
+      "title": "How to Create a Cold Email Campaign in ColdAF",
+      "slug": "how-to-create-a-cold-email-campaign-in-coldaf",
+      "file": "131-create-campaign.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 132,
+      "title": "How to Assign Leads to a Campaign",
+      "slug": "how-to-assign-leads-to-a-campaign",
+      "file": "132-assign-leads-to-campaign.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 133,
+      "title": "How to Start, Pause, or Resume a Campaign",
+      "slug": "how-to-start-pause-or-resume-a-campaign",
+      "file": "133-start-pause-campaign.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 134,
+      "title": "How to Cancel a Campaign in ColdAF",
+      "slug": "how-to-cancel-a-campaign-in-coldaf",
+      "file": "134-cancel-campaign.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 135,
+      "title": "How to View Campaign Details and Performance",
+      "slug": "how-to-view-campaign-details-and-performance",
+      "file": "135-view-campaign-details.md",
+      "category": "Campaigns & Leads"
+    },
+    {
+      "id": 136,
+      "title": "How to Import Leads from a CSV File in ColdAF",
+      "slug": "how-to-import-leads-from-a-csv-file-in-coldaf",
+      "file": "136-import-leads-csv.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 137,
+      "title": "How to Import Leads from Google Sheets in ColdAF",
+      "slug": "how-to-import-leads-from-google-sheets-in-coldaf",
+      "file": "137-import-leads-google-sheets.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 138,
+      "title": "How to Create a Lead Manually in ColdAF",
+      "slug": "how-to-create-a-lead-manually-in-coldaf",
+      "file": "138-create-lead-manually.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 139,
+      "title": "How to Edit Lead Details in ColdAF",
+      "slug": "how-to-edit-lead-details-in-coldaf",
+      "file": "139-edit-lead-details.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 140,
+      "title": "How to Bulk Edit Leads in ColdAF",
+      "slug": "how-to-bulk-edit-leads-in-coldaf",
+      "file": "140-bulk-edit-leads.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 141,
+      "title": "How to Export Leads to a CSV File in ColdAF",
+      "slug": "how-to-export-leads-to-a-csv-file-in-coldaf",
+      "file": "141-export-leads-csv.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 142,
+      "title": "How to Build a Follow-Up Sequence in ColdAF",
+      "slug": "how-to-build-a-follow-up-sequence-in-coldaf",
+      "file": "142-build-follow-up-sequence.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 143,
+      "title": "How to Set Stop Conditions for Sequences in ColdAF",
+      "slug": "how-to-set-stop-conditions-for-sequences-in-coldaf",
+      "file": "143-set-sequence-stop-conditions.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 144,
+      "title": "How to Create an Email Template in ColdAF",
+      "slug": "how-to-create-an-email-template-in-coldaf",
+      "file": "144-create-email-template.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 145,
+      "title": "How to Use Spintax in Your Email Templates in ColdAF",
+      "slug": "how-to-use-spintax-in-your-email-templates-in-coldaf",
+      "file": "145-use-spintax-in-templates.md",
+      "category": "Leads, Sequences & Templates"
+    },
+    {
+      "id": 146,
+      "title": "How to Generate a Cold Email with AI in ColdAF",
+      "slug": "how-to-generate-a-cold-email-with-ai-in-coldaf",
+      "file": "146-generate-email-with-ai.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 147,
+      "title": "How to Choose Your AI Provider in ColdAF",
+      "slug": "how-to-choose-your-ai-provider-in-coldaf",
+      "file": "147-choose-ai-provider.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 148,
+      "title": "How to Track AI Token Usage and Costs",
+      "slug": "how-to-track-ai-token-usage-and-costs",
+      "file": "148-track-ai-token-usage.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 149,
+      "title": "How to Chat with the AI CEO Agent in ColdAF",
+      "slug": "how-to-chat-with-the-ai-ceo-agent-in-coldaf",
+      "file": "149-chat-with-ai-agent.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 150,
+      "title": "How to Run an AI Agent Check Manually",
+      "slug": "how-to-run-an-ai-agent-check-manually",
+      "file": "150-run-ai-agent-check.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 151,
+      "title": "How to View AI Agent Logs in ColdAF",
+      "slug": "how-to-view-ai-agent-logs-in-coldaf",
+      "file": "151-view-ai-agent-logs.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 152,
+      "title": "How to View Campaign Analytics in ColdAF",
+      "slug": "how-to-view-campaign-analytics-in-coldaf",
+      "file": "152-view-campaign-analytics.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 153,
+      "title": "How to Understand Funnel Metrics in ColdAF",
+      "slug": "how-to-understand-funnel-metrics-in-coldaf",
+      "file": "153-understand-funnel-metrics.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 154,
+      "title": "How to Compare Date Ranges in Analytics",
+      "slug": "how-to-compare-date-ranges-in-analytics",
+      "file": "154-compare-date-ranges.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 155,
+      "title": "How to View SMTP Performance Analytics",
+      "slug": "how-to-view-smtp-performance-analytics",
+      "file": "155-view-smtp-performance.md",
+      "category": "AI, Analytics & Deliverability"
+    },
+    {
+      "id": 156,
+      "title": "How to Warm Up an Email Account in ColdAF",
+      "slug": "how-to-warm-up-an-email-account-in-coldaf",
+      "file": "156-warm-up-email-account.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 157,
+      "title": "How to Create a Warmup Pool in ColdAF",
+      "slug": "how-to-create-a-warmup-pool-in-coldaf",
+      "file": "157-create-warmup-pool.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 158,
+      "title": "How to Monitor Warmup Progress in ColdAF",
+      "slug": "how-to-monitor-warmup-progress-in-coldaf",
+      "file": "158-monitor-warmup-progress.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 159,
+      "title": "How to Add a Custom Tracking Domain",
+      "slug": "how-to-add-a-custom-tracking-domain",
+      "file": "159-add-custom-tracking-domain.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 160,
+      "title": "How to Verify Your Tracking Domain DNS",
+      "slug": "how-to-verify-your-tracking-domain-dns",
+      "file": "160-verify-tracking-domain.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 161,
+      "title": "How to Connect Google Sheets to ColdAF",
+      "slug": "how-to-connect-google-sheets-to-coldaf",
+      "file": "161-connect-google-sheets.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 162,
+      "title": "How to Set Up a Webhook for Lead Intake",
+      "slug": "how-to-set-up-a-webhook-for-lead-intake",
+      "file": "162-set-up-webhook-intake.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 163,
+      "title": "How to Connect HubSpot CRM to ColdAF",
+      "slug": "how-to-connect-hubspot-crm-to-coldaf",
+      "file": "163-connect-hubspot-crm.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 164,
+      "title": "How to Sync HubSpot Contacts with ColdAF",
+      "slug": "how-to-sync-hubspot-contacts-with-coldaf",
+      "file": "164-sync-hubspot-contacts.md",
+      "category": "Integrations, Warmup & Tracking"
+    },
+    {
+      "id": 165,
+      "title": "How to Set Up an Outbound Webhook",
+      "slug": "how-to-set-up-an-outbound-webhook",
+      "file": "165-set-up-outbound-webhook.md",
+      "category": "Integrations, Warmup & Tracking"
+    }
+  ]
+}

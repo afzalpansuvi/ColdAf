@@ -4,7 +4,7 @@ const express = require('express');
 const db = require('../config/database');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, requireAdmin } = require('../middleware/rbac');
 const { tenantScope } = require('../middleware/tenantScope');
 const { runFullCheck } = require('../services/deliverabilityChecker');
 
@@ -14,7 +14,7 @@ const router = express.Router();
 // (matches the pattern used in smtp.js)
 router.use(authenticate);
 router.use(tenantScope);
-router.use(requireRole('admin'));
+router.use(requireAdmin);
 
 // ---------------------------------------------------------------------------
 // GET /:id/deliverability — latest check for this SMTP account

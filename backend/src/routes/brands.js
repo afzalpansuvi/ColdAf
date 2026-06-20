@@ -6,7 +6,7 @@ const db = require('../config/database');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, requireAdmin } = require('../middleware/rbac');
 const { tenantScope, requireOrg } = require('../middleware/tenantScope');
 const { validateBody, validateParams, sanitizeBody } = require('../middleware/validation');
 
@@ -202,7 +202,7 @@ function parseArrayField(v, fallback) {
 // POST / - Create a new brand (admin only)
 // Accepts JSON or multipart/form-data (with optional `logo` file field)
 // ---------------------------------------------------------------------------
-router.post('/', requireRole('admin'), upload.single('logo'), sanitizeBody, validateBody({
+router.post('/', requireAdmin, upload.single('logo'), sanitizeBody, validateBody({
   name: { type: 'string', required: true, min: 1, max: 200 },
   primaryDomain: { type: 'domain', required: false },
   websiteUrl: { type: 'url', required: false },
@@ -333,7 +333,7 @@ router.post('/', requireRole('admin'), upload.single('logo'), sanitizeBody, vali
 // ---------------------------------------------------------------------------
 // PUT /:id - Update a brand (admin only)
 // ---------------------------------------------------------------------------
-router.put('/:id', requireRole('admin'), upload.single('logo'), sanitizeBody, validateBody({
+router.put('/:id', requireAdmin, upload.single('logo'), sanitizeBody, validateBody({
   name: { type: 'string', required: false, min: 1, max: 200 },
   primaryDomain: { type: 'domain', required: false },
   websiteUrl: { type: 'url', required: false },
@@ -538,7 +538,7 @@ router.put('/:id', requireRole('admin'), upload.single('logo'), sanitizeBody, va
 // ---------------------------------------------------------------------------
 // POST /:id/logo - Upload brand logo (admin only)
 // ---------------------------------------------------------------------------
-router.post('/:id/logo', requireRole('admin'), (req, res, next) => {
+router.post('/:id/logo', requireAdmin, (req, res, next) => {
   upload.single('logo')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -635,7 +635,7 @@ router.post('/:id/logo', requireRole('admin'), (req, res, next) => {
 // ---------------------------------------------------------------------------
 // DELETE /:id - Soft deactivate a brand (admin only)
 // ---------------------------------------------------------------------------
-router.delete('/:id', requireRole('admin'), async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
