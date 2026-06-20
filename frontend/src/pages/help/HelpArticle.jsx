@@ -2,47 +2,18 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
-import { findArticleBySlug, fetchArticle, getRelatedArticles, findArticleByFile } from './helpData';
-import { articlesByCategory } from './manifest';
+import { findArticleBySlug, fetchArticle, getRelatedArticles } from './helpData';
 import { setMeta, setCanonical } from './seo';
 import {
   BookOpen, ArrowLeft, Clock, Hash, Loader2, AlertTriangle, FileText
 } from 'lucide-react';
 import './helpMarkdown.css';
 
-// Custom remark plugin: parse "Related Articles" section to make links clickable
-function relatedArticlesPlugin() {
-  return (tree) => {
-    // Find the "Related Articles" heading and linkify the list items below it
-    let inRelated = false;
-    for (const node of tree.children || []) {
-      if (node.type === 'heading' && node.depth === 2) {
-        const text = node.children?.map(c => c.value || '').join('') || '';
-        inRelated = text.toLowerCase().includes('related articles');
-      }
-      if (inRelated && node.type === 'list') {
-        for (const item of node.children || []) {
-          const textNode = item.children?.[0];
-          if (textNode && textNode.type === 'paragraph') {
-            const text = textNode.children?.map(c => c.value || '').join('') || '';
-            // Find matching article by title
-            for (const cat of Object.values(articlesByCategory)) {
-              for (const art of cat) {
-                if (text.toLowerCase().includes(art.title.toLowerCase())) {
-                  textNode.children = [{
-                    type: 'link',
-                    url: `/help/${art.slug}`,
-                    children: [{ type: 'text', value: art.title }]
-                  }];
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  };
+// Strip the markdown's own "## Related Articles" section (always the last
+// section of each guide). We render a richer, linked Related Articles card
+// below from getRelatedArticles(), so the in-body list is redundant.
+function stripMarkdownRelated(md) {
+  return md.replace(/\n#{2,}\s*Related Articles[\s\S]*$/i, '\n').trimEnd();
 }
 
 export default function HelpArticle() {
@@ -170,7 +141,7 @@ export default function HelpArticle() {
                 },
               }}
             >
-              {content}
+              {stripMarkdownRelated(content)}
             </ReactMarkdown>
           </div>
         )}
